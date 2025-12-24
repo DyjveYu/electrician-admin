@@ -1,0 +1,1 @@
+import{V as r}from"./index-By0-w93g.js";const a=t=>r({url:"/admin/orders",method:"get",params:t}),d=(t,e)=>r({url:`/admin/orders/${t}/status`,method:"put",data:e}),o=t=>r({url:`/admin/orders/${t}`,method:"get"}),u=t=>r({url:"/admin/statistics",method:"get",params:t});export{a,o as b,u as g,d as u};

@@ -25,8 +25,8 @@ export default defineConfig({
     port: 8080,
     proxy: {
       '/api': {
-        //target: 'http://localhost:3000', //本地开发环境
-        target: 'https://electrician.mijutime.com:3000',//生产环境
+        target: 'http://localhost:3000', //本地开发环境
+        //target: 'https://electrician.mijutime.com',//生产环境
         changeOrigin: true
       }
     }
