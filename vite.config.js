@@ -26,7 +26,6 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3000', //本地开发环境
-        //target: 'https://electrician.mijutime.com',//生产环境
         changeOrigin: true
       }
     }
