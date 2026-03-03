@@ -20,15 +20,23 @@
           <el-select
             v-model="searchForm.status"
             placeholder="工单状态"
-            style="width: 120px"
+            style="width: 150px"
             clearable
             @change="handleSearch"
           >
+            <el-option label="待支付预付款" value="pending_payment" />
             <el-option label="待接单" value="pending" />
-            <el-option label="进行中" value="in_progress" />
-            <el-option label="待支付" value="pending_payment" />
-            <el-option label="已完成" value="completed" />
+            <el-option label="已接单" value="accepted" />
+            <el-option label="待支付维修费" value="pending_repair_payment" />
+            <el-option label="维修中" value="in_progress" />
+            <el-option label="待评价" value="pending_review" />
+            <el-option label="待二次评价" value="pending_second_review" />
+            <el-option label="已完成已支付" value="completed_settled" />
+            <el-option label="已完成未支付" value="completed_unsettle" />
+            <el-option label="支付失败" value="completed_settle_failed" />
             <el-option label="已取消" value="cancelled" />
+            <el-option label="取消处理中" value="cancel_pending" />
+            <el-option label="交易关闭" value="closed" />
           </el-select>
           
           <el-date-picker
@@ -96,38 +104,15 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        
+
         <el-table-column prop="order_no" label="工单号" width="150" />
-        
-        <el-table-column prop="user_nickname" label="用户昵称" width="130" />
-        
-        <el-table-column prop="electrician_nickname" label="电工" width="100">
+
+        <el-table-column prop="user_phone" label="创建人账号" width="130">
           <template #default="{ row }">
-            <span>{{ row.electrician_nickname || '未分配' }}</span>
+            <span>{{ row.user_phone || '-' }}</span>
           </template>
         </el-table-column>
-        
-        <el-table-column prop="service_type_name" label="服务类型" width="120" />
-        
-        <el-table-column label="问题描述" width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span>{{ row.title || '-' }}</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column label="服务地址" width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span>{{ row.service_address || '-' }}</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="final_amount" label="金额" width="100">
-          <template #default="{ row }">
-            <span v-if="row.final_amount">¥{{ row.final_amount }}</span>
-            <span v-else class="text-muted">未报价</span>
-          </template>
-        </el-table-column>
-        
+
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
@@ -135,13 +120,33 @@
             </el-tag>
           </template>
         </el-table-column>
-        
+
+        <el-table-column prop="electrician_name" label="电工" width="100">
+          <template #default="{ row }">
+            <span>{{ row.electrician_name || '未分配' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="service_type_name" label="服务类型" width="120" />
+
+        <el-table-column prop="description" label="服务描述" width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.description || '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="服务地址" width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.service_address || '-' }}</span>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="created_at" label="创建时间" width="160">
           <template #default="{ row }">
             {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="completed_at" label="完成时间" width="160">
           <template #default="{ row }">
             {{ row.completed_at ? formatDateTime(row.completed_at) : '-' }}
@@ -311,22 +316,38 @@ const orderStats = reactive({
 
 const getStatusTagType = (status) => {
   const typeMap = {
-    'pending': 'warning',
-    'in_progress': 'primary',
-    'pending_payment': 'info',
-    'completed': 'success',
-    'cancelled': 'danger'
+    'pending_payment': 'info',        // 待支付预付款
+    'pending': 'warning',            // 待接单（已支付预付款）
+    'accepted': 'primary',           // 已接单
+    'pending_repair_payment': 'info', // 待支付维修费
+    'in_progress': 'primary',        // 维修中
+    'pending_review': 'warning',     // 待评价
+    'pending_second_review': 'warning', // 待二次评价
+    'completed_settled': 'success',  // 已完成已支付电工费用
+    'completed_unsettle': 'warning', // 已完成未支付电工费用
+    'completed_settle_failed': 'danger', // 已完成支付电工费用失败
+    'cancelled': 'danger',           // 已取消
+    'cancel_pending': 'warning',     // 取消处理中
+    'closed': 'info'                // 交易关闭
   }
   return typeMap[status] || 'info'
 }
 
 const getStatusText = (status) => {
   const textMap = {
+    'pending_payment': '待支付预付款',
     'pending': '待接单',
-    'in_progress': '进行中',
-    'pending_payment': '待支付',
-    'completed': '已完成',
-    'cancelled': '已取消'
+    'accepted': '已接单',
+    'pending_repair_payment': '待支付维修费',
+    'in_progress': '维修中',
+    'pending_review': '待评价',
+    'pending_second_review': '待二次评价',
+    'completed_settled': '已完成已支付',
+    'completed_unsettle': '已完成未支付',
+    'completed_settle_failed': '支付失败',
+    'cancelled': '已取消',
+    'cancel_pending': '取消处理中',
+    'closed': '交易关闭'
   }
   return textMap[status] || '未知'
 }

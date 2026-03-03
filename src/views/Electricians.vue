@@ -28,6 +28,36 @@
             <el-option label="已通过" value="approved" />
             <el-option label="已驳回" value="rejected" />
           </el-select>
+
+          <el-select
+            v-model="searchForm.province"
+            placeholder="服务省"
+            style="width: 120px"
+            clearable
+            @change="handleProvinceChange"
+          >
+            <el-option v-for="p in provinceOptions" :key="p" :label="p" :value="p" />
+          </el-select>
+
+          <el-select
+            v-model="searchForm.city"
+            placeholder="服务市"
+            style="width: 120px"
+            clearable
+            @change="handleCityChange"
+          >
+            <el-option v-for="c in cityOptions" :key="c" :label="c" :value="c" />
+          </el-select>
+
+          <el-select
+            v-model="searchForm.district"
+            placeholder="服务区县"
+            style="width: 120px"
+            clearable
+            @change="handleSearch"
+          >
+            <el-option v-for="d in districtOptions" :key="d" :label="d" :value="d" />
+          </el-select>
           
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
@@ -61,29 +91,15 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        
+
         <el-table-column prop="id" label="ID" width="80" />
+
         
-        <el-table-column prop="phone" label="手机号" width="130" />
-        
-        <el-table-column prop="real_name" label="真实姓名" width="100" />
-        
-        <el-table-column prop="id_card" label="身份证号" width="180">
-          <template #default="{ row }">
-            <span>{{ maskIdCard(row.id_card) }}</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="electrician_license" label="电工证编号" width="150" />
-        
-        <el-table-column prop="license_expiry" label="证书有效期" width="120">
-          <template #default="{ row }">
-            <span :class="{ 'text-danger': isExpiringSoon(row.license_expiry) }">
-              {{ formatDate(row.license_expiry) }}
-            </span>
-          </template>
-        </el-table-column>
-        
+
+        <el-table-column prop="service_phone" label="服务联系电话" width="130" />
+
+        <el-table-column prop="real_name" label="姓名" width="100" />
+
         <el-table-column prop="status" label="认证状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
@@ -91,19 +107,25 @@
             </el-tag>
           </template>
         </el-table-column>
-        
-        <el-table-column prop="created_at" label="申请时间" width="160">
+
+        <el-table-column prop="province" label="服务省" width="100" />
+
+        <el-table-column prop="city" label="服务市" width="100" />
+
+        <el-table-column prop="district" label="服务区/县" width="120" />
+
+        <el-table-column prop="created_at" label="申请日期" width="120">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        
-        <el-table-column prop="approved_at" label="审核时间" width="160">
+
+        <el-table-column prop="updated_at" label="审核日期" width="120">
           <template #default="{ row }">
-            {{ row.approved_at ? formatDate(row.approved_at) : '-' }}
+            {{ row.updated_at ? formatDate(row.updated_at) : '-' }}
           </template>
         </el-table-column>
-        
+        <el-table-column prop="login_phone" label="登录手机号" width="130" />
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button
@@ -167,22 +189,28 @@
       <div v-if="currentElectrician" class="electrician-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="电工ID">{{ currentElectrician.id }}</el-descriptions-item>
-          <el-descriptions-item label="手机号">{{ currentElectrician.phone }}</el-descriptions-item>
+          
+          <el-descriptions-item label="服务联系电话">{{ currentElectrician.service_phone }}</el-descriptions-item>
           <el-descriptions-item label="真实姓名">{{ currentElectrician.real_name }}</el-descriptions-item>
           <el-descriptions-item label="身份证号">{{ currentElectrician.id_card }}</el-descriptions-item>
           <el-descriptions-item label="电工证编号">{{ currentElectrician.electrician_license }}</el-descriptions-item>
-          <el-descriptions-item label="证书有效期">
-            <span :class="{ 'text-danger': isExpiringSoon(currentElectrician.license_expiry) }">
-              {{ formatDate(currentElectrician.license_expiry) }}
+          <el-descriptions-item label="证书开始日期">{{ formatDate(currentElectrician.cert_start_date) }}</el-descriptions-item>
+          <el-descriptions-item label="证书结束日期">
+            <span :class="{ 'text-danger': isExpiringSoon(currentElectrician.cert_end_date) }">
+              {{ formatDate(currentElectrician.cert_end_date) }}
             </span>
           </el-descriptions-item>
+          <el-descriptions-item label="服务省份">{{ currentElectrician.province || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="服务城市">{{ currentElectrician.city || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="服务区县">{{ currentElectrician.district || '-' }}</el-descriptions-item>
           <el-descriptions-item label="认证状态">
             <el-tag :type="getStatusTagType(currentElectrician.status)">
               {{ getStatusText(currentElectrician.status) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="申请时间">{{ formatDate(currentElectrician.created_at) }}</el-descriptions-item>
-          <el-descriptions-item label="审核时间">{{ currentElectrician.approved_at ? formatDate(currentElectrician.approved_at) : '未审核' }}</el-descriptions-item>
+          <el-descriptions-item label="申请日期">{{ formatDate(currentElectrician.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="审核日期">{{ currentElectrician.updated_at ? formatDate(currentElectrician.updated_at) : '未审核' }}</el-descriptions-item>
+          <el-descriptions-item label="登录手机号">{{ currentElectrician.login_phone }}</el-descriptions-item>
           <el-descriptions-item label="审核备注" :span="2">
             {{ currentElectrician.reject_reason || '无' }}
           </el-descriptions-item>
@@ -288,8 +316,16 @@ const pendingRejectElectrician = ref(null)
 
 const searchForm = reactive({
   keyword: '',
-  status: ''
+  status: '',
+  province: '',
+  city: '',
+  district: ''
 })
+
+// 省市区选项
+const provinceOptions = ref([])
+const cityOptions = ref([])
+const districtOptions = ref([])
 
 const pagination = reactive({
   page: 1,
@@ -346,12 +382,23 @@ const loadElectricianList = async () => {
       limit: pagination.limit,
       ...searchForm
     }
-    
+
     const response = await getElectricianList(params)
     if (response.code === 200) {
       // 后端已经返回统一格式的数据
       electricianList.value = response.data.list || []
       pagination.total = response.data.total || 0
+
+      // 更新省市区选项
+      if (response.data.provinceOptions) {
+        provinceOptions.value = response.data.provinceOptions
+      }
+      if (response.data.cityOptions) {
+        cityOptions.value = response.data.cityOptions
+      }
+      if (response.data.districtOptions) {
+        districtOptions.value = response.data.districtOptions
+      }
     } else {
       ElMessage.error(response.message || '获取电工列表失败')
       electricianList.value = []
@@ -367,6 +414,22 @@ const loadElectricianList = async () => {
   }
 }
 
+// 省份选择变化时，清空市和区县选项
+const handleProvinceChange = () => {
+  searchForm.city = ''
+  searchForm.district = ''
+  cityOptions.value = []
+  districtOptions.value = []
+  handleSearch()
+}
+
+// 城市选择变化时，清空区县选项
+const handleCityChange = () => {
+  searchForm.district = ''
+  districtOptions.value = []
+  handleSearch()
+}
+
 const handleSearch = () => {
   pagination.page = 1
   loadElectricianList()
@@ -375,9 +438,13 @@ const handleSearch = () => {
 const handleReset = () => {
   Object.assign(searchForm, {
     keyword: '',
-    status: ''
+    status: '',
+    province: '',
+    city: '',
+    district: ''
   })
-  handleSearch()
+  // 重置后重新加载选项
+  loadElectricianList()
 }
 
 const handleSizeChange = (size) => {

@@ -20,12 +20,24 @@
             <el-icon><Tools /></el-icon>
           </div>
           <div class="stat-content">
-            <div class="stat-number">{{ stats.totalElectricians }}</div>
-            <div class="stat-label">认证电工</div>
+            <div class="stat-number">{{ stats.pendingElectricians }}</div>
+            <div class="stat-label">待审核电工</div>
           </div>
         </div>
       </el-col>
-      
+
+      <el-col :xs="24" :sm="12" :lg="6">
+        <div class="stat-card">
+          <div class="stat-icon electrician-icon">
+            <el-icon><Tools /></el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.approvedElectricians }}</div>
+            <div class="stat-label">已认证电工</div>
+          </div>
+        </div>
+      </el-col>
+
       <el-col :xs="24" :sm="12" :lg="6">
         <div class="stat-card">
           <div class="stat-icon order-icon">
@@ -34,18 +46,6 @@
           <div class="stat-content">
             <div class="stat-number">{{ stats.totalOrders }}</div>
             <div class="stat-label">总工单数</div>
-          </div>
-        </div>
-      </el-col>
-      
-      <el-col :xs="24" :sm="12" :lg="6">
-        <div class="stat-card">
-          <div class="stat-icon revenue-icon">
-            <el-icon><Money /></el-icon>
-          </div>
-          <div class="stat-content">
-            <div class="stat-number">¥{{ stats.totalRevenue }}</div>
-            <div class="stat-label">总收入</div>
           </div>
         </div>
       </el-col>
@@ -106,9 +106,9 @@ const orderStatusChart = ref()
 
 const stats = reactive({
   totalUsers: 0,
-  totalElectricians: 0,
-  totalOrders: 0,
-  totalRevenue: 0
+  pendingElectricians: 0,
+  approvedElectricians: 0,
+  totalOrders: 0
 })
 
 const recentActivities = ref([
@@ -212,16 +212,23 @@ const loadStatistics = async () => {
   try {
     const response = await getStatistics()
     if (response.code === 200) {
-      Object.assign(stats, response.data)
+      // 后端返回结构: { users: { total_users, approved_electricians, pending_electricians }, orders: { total_orders }, ... }
+      const data = response.data
+      Object.assign(stats, {
+        totalUsers: data.users?.total_users || 0,
+        pendingElectricians: data.users?.pending_electricians || 0,
+        approvedElectricians: data.users?.approved_electricians || 0,
+        totalOrders: data.orders?.total_orders || 0
+      })
     }
   } catch (error) {
     console.error('加载统计数据失败:', error)
     // 使用模拟数据
     Object.assign(stats, {
-      totalUsers: 1234,
-      totalElectricians: 89,
-      totalOrders: 567,
-      totalRevenue: 123456
+      totalUsers: 0,
+      pendingElectricians: 0,
+      approvedElectricians: 0,
+      totalOrders: 0
     })
   }
 }
