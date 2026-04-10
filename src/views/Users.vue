@@ -6,7 +6,7 @@
         <div class="left">
           <h2>用户管理</h2>
           <el-input
-            v-model="searchForm.keyword"
+            v-model="searchForm.search"
             placeholder="搜索用户手机号或昵称"
             style="width: 300px"
             clearable
@@ -25,7 +25,7 @@
             @change="handleSearch"
           >
             <el-option label="正常" value="active" />
-            <el-option label="封禁" value="banned" />
+            <el-option label="冻结" value="banned" />
           </el-select>
           
           <el-select
@@ -115,13 +115,22 @@
         
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
+            
+            
+            <el-button
+              type="primary"
+              size="small"
+              @click="handleViewDetail(row)"
+            >
+              详情
+            </el-button>
             <el-button
               v-if="row.status === 'active'"
               type="danger"
               size="small"
               @click="handleBanUser(row)"
             >
-              封禁
+              冻结
             </el-button>
             
             <el-button
@@ -131,14 +140,6 @@
               @click="handleUnbanUser(row)"
             >
               解封
-            </el-button>
-            
-            <el-button
-              type="primary"
-              size="small"
-              @click="handleViewDetail(row)"
-            >
-              详情
             </el-button>
           </template>
         </el-table-column>
@@ -210,7 +211,7 @@ const detailDialogVisible = ref(false)
 const currentUser = ref(null)
 
 const searchForm = reactive({
-  keyword: '',
+  search: '',
   status: '',
   role: ''
 })
@@ -233,7 +234,7 @@ const getStatusTagType = (status) => {
 const getStatusText = (status) => {
   const textMap = {
     'active': '正常',
-    'banned': '封禁',
+    'banned': '冻结',
     'inactive': '未激活'
   }
   return textMap[status] || '未知'
@@ -296,7 +297,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   Object.assign(searchForm, {
-    keyword: '',
+    search: '',
     status: '',
     role: ''
   })
@@ -321,8 +322,8 @@ const handleSelectionChange = (selection) => {
 const handleBanUser = async (user) => {
   try {
     await ElMessageBox.confirm(
-      `确定要封禁用户 ${user.phone} 吗？`,
-      '确认封禁',
+      `确定要冻结用户 ${user.phone} 吗？`,
+      '确认冻结',
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
@@ -332,13 +333,13 @@ const handleBanUser = async (user) => {
     
     const response = await banUser(user.id)
     if (response.code === 200) {
-      ElMessage.success('用户封禁成功')
+      ElMessage.success('用户冻结成功')
       loadUserList()
     }
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('封禁用户失败:', error)
-      ElMessage.error('封禁用户失败')
+      console.error('冻结用户失败:', error)
+      ElMessage.error('冻结用户失败')
     }
   }
 }

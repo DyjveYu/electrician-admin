@@ -34,3 +34,12 @@ export const getStatistics = (params) => {
     params
   })
 }
+
+// 获取非五星订单列表
+export const getNonFiveStarOrders = (params) => {
+  return request({
+    url: '/admin/orders/non-five-star',
+    method: 'get',
+    params
+  })
+}

@@ -153,14 +153,23 @@
             >
               详情
             </el-button>
-            
+
             <el-button
               v-if="row.status === 'approved'"
               type="warning"
               size="small"
               @click="handleBanElectrician(row)"
             >
-              封禁
+              冻结
+            </el-button>
+
+            <el-button
+              v-if="row.user_status === 'banned'"
+              type="success"
+              size="small"
+              @click="handleUnbanElectrician(row)"
+            >
+              解冻
             </el-button>
           </template>
         </el-table-column>
@@ -303,7 +312,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getElectricianList, approveElectrician, rejectElectrician, getElectricianDetail, banElectrician } from '@/api/electricians'
+import { getElectricianList, approveElectrician, rejectElectrician, getElectricianDetail, banElectrician, unbanElectrician } from '@/api/electricians'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
@@ -538,24 +547,49 @@ const handleViewDetail = async (electrician) => {
 const handleBanElectrician = async (electrician) => {
   try {
     await ElMessageBox.confirm(
-      `确定要封禁电工 ${electrician.real_name} 吗？`,
-      '确认封禁',
+      `确定要冻结电工 ${electrician.real_name} 吗？`,
+      '确认冻结',
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }
     )
-    
+
     const response = await banElectrician(electrician.id)
     if (response.code === 200) {
-      ElMessage.success('电工封禁成功')
+      ElMessage.success('电工已冻结')
       loadElectricianList()
     }
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('封禁电工失败:', error)
-      ElMessage.error('封禁电工失败')
+      console.error('冻结电工失败:', error)
+      ElMessage.error('冻结电工失败')
+    }
+  }
+}
+
+const handleUnbanElectrician = async (electrician) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要解冻电工 ${electrician.real_name} 吗？`,
+      '确认解冻',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'success'
+      }
+    )
+
+    const response = await unbanElectrician(electrician.id)
+    if (response.code === 200) {
+      ElMessage.success('电工已解冻')
+      loadElectricianList()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('解冻电工失败:', error)
+      ElMessage.error('解冻电工失败')
     }
   }
 }

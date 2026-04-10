@@ -24,6 +24,12 @@ const router = createRouter({
           meta: { title: '仪表盘', icon: 'DataBoard' }
         },
         {
+          path: '/admins',
+          name: 'Admins',
+          component: () => import('@/views/Admins.vue'),
+          meta: { title: '管理员中心', icon: 'UserFilled' }
+        },
+        {
           path: '/users',
           name: 'Users',
           component: () => import('@/views/Users.vue'),
@@ -42,10 +48,22 @@ const router = createRouter({
           meta: { title: '工单管理', icon: 'Document' }
         },
         {
+          path: '/orders/non-five-star',
+          name: 'NonFiveStarOrders',
+          component: () => import('@/views/NonFiveStarOrders.vue'),
+          meta: { title: '非五星订单', icon: 'Star' }
+        },
+        {
           path: '/messages',
           name: 'Messages',
           component: () => import('@/views/Messages.vue'),
           meta: { title: '系统通知', icon: 'Bell' }
+        },
+        {
+          path: '/deposits',
+          name: 'Deposits',
+          component: () => import('@/views/Deposits.vue'),
+          meta: { title: '押金管理', icon: 'Wallet' }
         }
       ]
     },

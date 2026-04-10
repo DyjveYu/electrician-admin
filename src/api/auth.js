@@ -24,3 +24,12 @@ export const adminLogout = () => {
     method: 'post'
   })
 }
+
+// 修改密码
+export const changePassword = (data) => {
+  return request({
+    url: '/admin/auth/change-password',
+    method: 'put',
+    data
+  })
+}

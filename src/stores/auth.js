@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { adminLogin, getAdminInfo } from '@/api/auth'
+import { adminLogin, getAdminInfo, changePassword } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('admin_token') || '')
@@ -50,6 +50,26 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('admin_token')
   }
 
+  // 修改密码
+  const changeUserPassword = async (oldPassword, newPassword) => {
+    loading.value = true
+    try {
+      const response = await changePassword({
+        old_password: oldPassword,
+        new_password: newPassword
+      })
+      if (response.code === 200) {
+        return { success: true }
+      } else {
+        return { success: false, message: response.message }
+      }
+    } catch (error) {
+      return { success: false, message: error.message || '修改密码失败' }
+    } finally {
+      loading.value = false
+    }
+  }
+
   // 初始化时获取管理员信息
   if (token.value) {
     fetchAdminInfo()
@@ -62,6 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     login,
     logout,
-    fetchAdminInfo
+    fetchAdminInfo,
+    changeUserPassword
   }
 })
