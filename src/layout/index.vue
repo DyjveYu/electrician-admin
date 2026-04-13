@@ -50,6 +50,11 @@
           <template #title>押金管理</template>
         </el-menu-item>
 
+        <el-menu-item index="/system/time-period-fees">
+          <el-icon><Clock /></el-icon>
+          <template #title>时段计费配置</template>
+        </el-menu-item>
+
         <el-menu-item index="/admins">
           <el-icon><UserFilled /></el-icon>
           <template #title>管理员中心</template>

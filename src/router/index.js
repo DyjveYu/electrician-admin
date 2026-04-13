@@ -64,6 +64,12 @@ const router = createRouter({
           name: 'Deposits',
           component: () => import('@/views/Deposits.vue'),
           meta: { title: '押金管理', icon: 'Wallet' }
+        },
+        {
+          path: '/system/time-period-fees',
+          name: 'SystemTimePeriodFees',
+          component: () => import('@/views/SystemTimePeriodFees.vue'),
+          meta: { title: '时段计费配置', icon: 'Clock' }
         }
       ]
     },

@@ -275,6 +275,69 @@
             <el-descriptions-item label="评价时间">{{ formatDateTime(currentOrder.review.created_at) }}</el-descriptions-item>
           </el-descriptions>
         </div>
+
+        <!-- 退款信息 -->
+        <div v-if="currentOrder.prepay_refund_status || currentOrder.repair_refund_status" class="refund-section">
+          <h4>退款信息</h4>
+          <!-- 预付款退款 -->
+          <div v-if="currentOrder.prepay_refund_status">
+            <el-descriptions title="预付款退款" :column="2" border>
+              <el-descriptions-item label="退款状态">
+                <el-tag :type="getRefundTagType(currentOrder.prepay_refund_status)">
+                  {{ getRefundStatusText(currentOrder.prepay_refund_status) }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="退款金额">
+                <span v-if="currentOrder.prepay_refund_amount">¥{{ currentOrder.prepay_refund_amount }}</span>
+                <span v-else>-</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="退款申请时间">
+                {{ currentOrder.prepay_refund_requested_at ? formatDateTime(currentOrder.prepay_refund_requested_at) : '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="退款完成时间">
+                {{ currentOrder.prepay_refund_completed_at ? formatDateTime(currentOrder.prepay_refund_completed_at) : '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="腾讯退款单号">
+                {{ currentOrder.prepay_refund_id || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="腾讯支付交易号">
+                {{ currentOrder.prepay_transaction_id || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="退款原因" :span="2">
+                {{ currentOrder.prepay_refund_reason || '-' }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+          <!-- 维修费退款 -->
+          <div v-if="currentOrder.repair_refund_status" style="margin-top: 16px;">
+            <el-descriptions title="维修费退款" :column="2" border>
+              <el-descriptions-item label="退款状态">
+                <el-tag :type="getRefundTagType(currentOrder.repair_refund_status)">
+                  {{ getRefundStatusText(currentOrder.repair_refund_status) }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="退款金额">
+                <span v-if="currentOrder.repair_refund_amount">¥{{ currentOrder.repair_refund_amount }}</span>
+                <span v-else>-</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="退款申请时间">
+                {{ currentOrder.repair_refund_requested_at ? formatDateTime(currentOrder.repair_refund_requested_at) : '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="退款完成时间">
+                {{ currentOrder.repair_refund_completed_at ? formatDateTime(currentOrder.repair_refund_completed_at) : '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="腾讯退款单号">
+                {{ currentOrder.repair_refund_id || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="腾讯支付交易号">
+                {{ currentOrder.repair_transaction_id || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="退款原因" :span="2">
+                {{ currentOrder.repair_refund_reason || '-' }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+        </div>
       </div>
       
       <template #footer>
@@ -350,6 +413,24 @@ const getStatusText = (status) => {
     'closed': '交易关闭'
   }
   return textMap[status] || '未知'
+}
+
+const getRefundStatusText = (status) => {
+  const textMap = {
+    'processing': '退款中',
+    'success': '已退款',
+    'rejected': '已拒绝'
+  }
+  return textMap[status] || (status ? status : '无退款')
+}
+
+const getRefundTagType = (status) => {
+  const typeMap = {
+    'processing': 'warning',
+    'success': 'success',
+    'rejected': 'danger'
+  }
+  return typeMap[status] || 'info'
 }
 
 const formatDateTime = (dateString) => {
@@ -579,13 +660,15 @@ onMounted(() => {
 
 .images-section,
 .repair-section,
-.review-section {
+.review-section,
+.refund-section {
   margin-top: 24px;
 }
 
 .images-section h4,
 .repair-section h4,
-.review-section h4 {
+.review-section h4,
+.refund-section h4 {
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 500;

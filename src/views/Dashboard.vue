@@ -50,6 +50,84 @@
         </div>
       </el-col>
     </el-row>
+
+    <!-- 财务统计卡片 -->
+    <el-row :gutter="24" class="stats-row">
+      <el-col :xs="24" :sm="12" :lg="6">
+        <div class="stat-card">
+          <div class="stat-icon revenue-icon">
+            <el-icon><Money /></el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">¥{{ formatNumber(stats.totalPaymentIncome) }}</div>
+            <div class="stat-label">用户支付总收入</div>
+          </div>
+        </div>
+      </el-col>
+
+      <el-col :xs="24" :sm="12" :lg="6">
+        <div class="stat-card">
+          <div class="stat-icon electrician-share-icon">
+            <el-icon><Coin /></el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">¥{{ formatNumber(stats.electricianShare) }}</div>
+            <div class="stat-label">电工分成总金额(85%)</div>
+          </div>
+        </div>
+      </el-col>
+
+      <el-col :xs="24" :sm="12" :lg="6">
+        <div class="stat-card">
+          <div class="stat-icon platform-icon">
+            <el-icon><TrendCharts /></el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">¥{{ formatNumber(stats.platformRevenue) }}</div>
+            <div class="stat-label">平台运营净收益(15%)</div>
+          </div>
+        </div>
+      </el-col>
+
+      <el-col :xs="24" :sm="12" :lg="6">
+        <div class="stat-card">
+          <div class="stat-icon refund-icon">
+            <el-icon><RefreshLeft /></el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">¥{{ formatNumber(stats.totalRefunds) }}</div>
+            <div class="stat-label">用户退款总金额</div>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <!-- 押金统计卡片 -->
+    <el-row :gutter="24" class="stats-row">
+      <el-col :xs="24" :sm="12" :lg="6">
+        <div class="stat-card">
+          <div class="stat-icon deposit-paid-icon">
+            <el-icon><Money /></el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">¥{{ formatNumber(stats.totalDepositsPaid) }}</div>
+            <div class="stat-label">电工已缴押金合计</div>
+          </div>
+        </div>
+      </el-col>
+
+      <el-col :xs="24" :sm="12" :lg="6">
+        <div class="stat-card">
+          <div class="stat-icon deposit-refunded-icon">
+            <el-icon><Postcard /></el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">¥{{ formatNumber(stats.totalDepositsRefunded) }}</div>
+            <div class="stat-label">电工已退押金合计</div>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
     
     <!-- 图表区域 -->
     <el-row :gutter="24" class="charts-row">
@@ -108,8 +186,19 @@ const stats = reactive({
   totalUsers: 0,
   pendingElectricians: 0,
   approvedElectricians: 0,
-  totalOrders: 0
+  totalOrders: 0,
+  totalPaymentIncome: 0,
+  electricianShare: 0,
+  platformRevenue: 0,
+  totalRefunds: 0,
+  totalDepositsPaid: 0,
+  totalDepositsRefunded: 0
 })
+
+const formatNumber = (num) => {
+  if (!num) return '0.00'
+  return Number(num).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 const recentActivities = ref([
   {
@@ -212,13 +301,19 @@ const loadStatistics = async () => {
   try {
     const response = await getStatistics()
     if (response.code === 200) {
-      // 后端返回结构: { users: { total_users, approved_electricians, pending_electricians }, orders: { total_orders }, ... }
+      // 后端返回结构: { users: { total_users, approved_electricians, pending_electricians }, orders: { total_orders }, revenue: {...}, finance: {...} }
       const data = response.data
       Object.assign(stats, {
         totalUsers: data.users?.total_users || 0,
         pendingElectricians: data.users?.pending_electricians || 0,
         approvedElectricians: data.users?.approved_electricians || 0,
-        totalOrders: data.orders?.total_orders || 0
+        totalOrders: data.orders?.total_orders || 0,
+        totalPaymentIncome: data.finance?.total_payment_income || 0,
+        electricianShare: data.finance?.electrician_share || 0,
+        platformRevenue: data.finance?.platform_revenue || 0,
+        totalRefunds: data.finance?.total_refunds || 0,
+        totalDepositsPaid: data.finance?.total_deposits_paid || 0,
+        totalDepositsRefunded: data.finance?.total_deposits_refunded || 0
       })
     }
   } catch (error) {
@@ -228,7 +323,13 @@ const loadStatistics = async () => {
       totalUsers: 0,
       pendingElectricians: 0,
       approvedElectricians: 0,
-      totalOrders: 0
+      totalOrders: 0,
+      totalPaymentIncome: 0,
+      electricianShare: 0,
+      platformRevenue: 0,
+      totalRefunds: 0,
+      totalDepositsPaid: 0,
+      totalDepositsRefunded: 0
     })
   }
 }
@@ -290,6 +391,26 @@ onMounted(async () => {
 
 .revenue-icon {
   background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.electrician-share-icon {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.platform-icon {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.refund-icon {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ffa07a 100%);
+}
+
+.deposit-paid-icon {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.deposit-refunded-icon {
+  background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%);
 }
 
 .stat-content {
