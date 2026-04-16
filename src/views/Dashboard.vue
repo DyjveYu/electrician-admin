@@ -176,7 +176,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, nextTick } from 'vue'
-import { getStatistics, getRecentActivities } from '@/api/orders'
+import { getStatistics, getRecentActivities, getDashboardChartData } from '@/api/orders'
 import * as echarts from 'echarts'
 
 const orderTrendChart = ref()
@@ -233,7 +233,7 @@ const loadRecentActivities = async () => {
   }
 }
 
-const initOrderTrendChart = () => {
+const initOrderTrendChart = (orderTrend) => {
   const chart = echarts.init(orderTrendChart.value)
   const option = {
     title: {
@@ -248,13 +248,13 @@ const initOrderTrendChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: ['1/9', '1/10', '1/11', '1/12', '1/13', '1/14', '1/15']
+      data: orderTrend.map(item => item.date)
     },
     yAxis: {
       type: 'value'
     },
     series: [{
-      data: [12, 19, 15, 22, 18, 25, 20],
+      data: orderTrend.map(item => item.count),
       type: 'line',
       smooth: true,
       itemStyle: {
@@ -265,7 +265,7 @@ const initOrderTrendChart = () => {
   chart.setOption(option)
 }
 
-const initOrderStatusChart = () => {
+const initOrderStatusChart = (orderStatusDistribution) => {
   const chart = echarts.init(orderStatusChart.value)
   const option = {
     title: {
@@ -281,12 +281,7 @@ const initOrderStatusChart = () => {
     series: [{
       type: 'pie',
       radius: '60%',
-      data: [
-        { value: 35, name: '待接单' },
-        { value: 25, name: '进行中' },
-        { value: 20, name: '待支付' },
-        { value: 20, name: '已完成' }
-      ],
+      data: orderStatusDistribution,
       emphasis: {
         itemStyle: {
           shadowBlur: 10,
@@ -303,13 +298,13 @@ const loadStatistics = async () => {
   try {
     const response = await getStatistics()
     if (response.code === 200) {
-      // 后端返回结构: { users: { total_users, approved_electricians, pending_electricians }, orders: { total_orders }, revenue: {...}, finance: {...} }
+      // 后端返回结构: { users: { total_users, approved_electricians, pending_electricians }, orders: { total }, revenue: {...}, finance: {...} }
       const data = response.data
       Object.assign(stats, {
         totalUsers: data.users?.total_users || 0,
         pendingElectricians: data.users?.pending_electricians || 0,
         approvedElectricians: data.users?.approved_electricians || 0,
-        totalOrders: data.orders?.total_orders || 0,
+        totalOrders: data.orders?.total || 0,
         totalPaymentIncome: data.finance?.total_payment_income || 0,
         electricianShare: data.finance?.electrician_share || 0,
         platformRevenue: data.finance?.platform_revenue || 0,
@@ -320,19 +315,23 @@ const loadStatistics = async () => {
     }
   } catch (error) {
     console.error('加载统计数据失败:', error)
-    // 使用模拟数据
-    Object.assign(stats, {
-      totalUsers: 0,
-      pendingElectricians: 0,
-      approvedElectricians: 0,
-      totalOrders: 0,
-      totalPaymentIncome: 0,
-      electricianShare: 0,
-      platformRevenue: 0,
-      totalRefunds: 0,
-      totalDepositsPaid: 0,
-      totalDepositsRefunded: 0
-    })
+  }
+}
+
+// 加载图表数据
+const loadChartData = async () => {
+  try {
+    const response = await getDashboardChartData()
+    if (response.code === 200) {
+      await nextTick()
+      initOrderTrendChart(response.data.orderTrend || [])
+      initOrderStatusChart(response.data.orderStatusDistribution || [])
+    }
+  } catch (error) {
+    console.error('加载图表数据失败:', error)
+    await nextTick()
+    initOrderTrendChart([])
+    initOrderStatusChart([])
   }
 }
 
@@ -344,9 +343,7 @@ const refreshData = () => {
 onMounted(async () => {
   await loadStatistics()
   await loadRecentActivities()
-  await nextTick()
-  initOrderTrendChart()
-  initOrderStatusChart()
+  await loadChartData()
 })
 </script>
 

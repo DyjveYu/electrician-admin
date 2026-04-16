@@ -127,7 +127,11 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="service_type_name" label="服务类型" width="120" />
+        <el-table-column label="服务类型" width="120">
+          <template #default="{ row }">
+            {{ row.serviceType?.name || '-' }}
+          </template>
+        </el-table-column>
 
         <el-table-column prop="description" label="服务描述" width="200" show-overflow-tooltip>
           <template #default="{ row }">
@@ -153,7 +157,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -162,25 +166,6 @@
             >
               详情
             </el-button>
-            
-            <el-dropdown @command="(command) => handleOrderAction(command, row)">
-              <el-button type="text" size="small">
-                更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="cancel" v-if="row.status === 'pending' || row.status === 'in_progress'">
-                    取消工单
-                  </el-dropdown-item>
-                  <el-dropdown-item command="force_complete" v-if="row.status === 'in_progress'">
-                    强制完成
-                  </el-dropdown-item>
-                  <el-dropdown-item command="refund" v-if="row.status === 'completed'">
-                    申请退款
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -209,13 +194,29 @@
         <el-row :gutter="24">
           <el-col :span="12">
             <el-descriptions title="基本信息" :column="1" border>
-              <el-descriptions-item label="工单号">{{ currentOrder.order_number }}</el-descriptions-item>
-              <el-descriptions-item label="服务类型">{{ currentOrder.service_type }}</el-descriptions-item>
+              <el-descriptions-item label="工单号">{{ currentOrder.order_no }}</el-descriptions-item>
+              <el-descriptions-item label="服务类型">{{ currentOrder.service_type_name || currentOrder.serviceType?.name }}</el-descriptions-item>
               <el-descriptions-item label="问题描述">{{ currentOrder.description }}</el-descriptions-item>
-              <el-descriptions-item label="服务地址">{{ currentOrder.address }}</el-descriptions-item>
+              <el-descriptions-item label="服务地址">{{ currentOrder.address?.detail_address || currentOrder.service_address || '-' }}</el-descriptions-item>
               <el-descriptions-item label="联系人">{{ currentOrder.contact_name }}</el-descriptions-item>
               <el-descriptions-item label="联系电话">{{ currentOrder.contact_phone }}</el-descriptions-item>
               <el-descriptions-item label="预约时间">{{ currentOrder.appointment_time ? formatDateTime(currentOrder.appointment_time) : '随时' }}</el-descriptions-item>
+              <el-descriptions-item label="预付款金额">
+                <span v-if="currentOrder.prepay_amount">¥{{ currentOrder.prepay_amount }}</span>
+                <span v-else-if="currentOrder.amount">¥{{ currentOrder.amount }}</span>
+                <span v-else class="text-muted">-</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="维修金额">
+                <span v-if="currentOrder.final_amount || currentOrder.repair_amount">¥{{ currentOrder.final_amount || currentOrder.repair_amount }}</span>
+                <span v-else class="text-muted">-</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="总金额">
+                <span v-if="currentOrder.prepay_amount && (currentOrder.final_amount || currentOrder.repair_amount)">
+                  ¥{{ (Number(currentOrder.prepay_amount) + Number(currentOrder.final_amount || currentOrder.repair_amount)).toFixed(2) }}
+                </span>
+                <span v-else-if="currentOrder.amount">¥{{ currentOrder.amount }}</span>
+                <span v-else class="text-muted">-</span>
+              </el-descriptions-item>
             </el-descriptions>
           </el-col>
           
@@ -349,7 +350,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getOrderList, updateOrderStatus, getOrderDetail } from '@/api/orders'
+import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics } from '@/api/orders'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
@@ -447,17 +448,16 @@ const loadOrderList = async () => {
       search: searchForm.keyword,
       status: searchForm.status
     }
-    
+
     if (searchForm.dateRange && searchForm.dateRange.length === 2) {
       params.start_date = searchForm.dateRange[0].toISOString().split('T')[0]
       params.end_date = searchForm.dateRange[1].toISOString().split('T')[0]
     }
-    
+
     const response = await getOrderList(params)
     if (response.code === 200) {
       orderList.value = response.data.orders
       pagination.total = response.data.total
-      Object.assign(orderStats, response.data.stats || {})
     }
   } catch (error) {
     console.error('加载工单列表失败:', error)
@@ -465,6 +465,18 @@ const loadOrderList = async () => {
     orderList.value = []
   } finally {
     loading.value = false
+  }
+}
+
+// 加载统计数据
+const loadStats = async () => {
+  try {
+    const response = await getStatistics()
+    if (response.code === 200) {
+      Object.assign(orderStats, response.data.orders || {})
+    }
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
   }
 }
 
@@ -587,6 +599,7 @@ const handleExport = () => {
 
 onMounted(() => {
   loadOrderList()
+  loadStats()
 })
 </script>
 

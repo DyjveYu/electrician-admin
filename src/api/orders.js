@@ -35,6 +35,14 @@ export const getStatistics = (params) => {
   })
 }
 
+// 获取仪表盘图表数据
+export const getDashboardChartData = () => {
+  return request({
+    url: '/admin/dashboard-chart-data',
+    method: 'get'
+  })
+}
+
 // 获取非五星订单列表
 export const getNonFiveStarOrders = (params) => {
   return request({
