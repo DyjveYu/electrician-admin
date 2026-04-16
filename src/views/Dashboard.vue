@@ -176,7 +176,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, nextTick } from 'vue'
-import { getStatistics } from '@/api/orders'
+import { getStatistics, getRecentActivities } from '@/api/orders'
 import * as echarts from 'echarts'
 
 const orderTrendChart = ref()
@@ -200,35 +200,37 @@ const formatNumber = (num) => {
   return Number(num).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const recentActivities = ref([
-  {
-    time: '2024-01-15 14:30:00',
-    type: '新用户注册',
-    description: '用户 138****8000 完成注册',
-    user: '138****8000'
-  },
-  {
-    time: '2024-01-15 14:25:00',
-    type: '工单完成',
-    description: '工单 #12345 已完成支付',
-    user: '139****9000'
-  },
-  {
-    time: '2024-01-15 14:20:00',
-    type: '电工认证',
-    description: '电工 张师傅 提交认证申请',
-    user: '张师傅'
-  }
-])
+const recentActivities = ref([])
 
 const getActivityTagType = (type) => {
   const typeMap = {
     '新用户注册': 'success',
-    '工单完成': 'primary',
     '电工认证': 'warning',
+    '电工认证通过': 'success',
+    '电工认证驳回': 'danger',
+    '新工单': 'primary',
+    '工单完成': 'success',
+    '工单取消': 'info',
+    '押金缴纳': 'warning',
+    '押金退款': 'info',
+    '支付成功': 'success',
     '系统通知': 'info'
   }
   return typeMap[type] || 'info'
+}
+
+const loadRecentActivities = async () => {
+  try {
+    const response = await getRecentActivities({ limit: 10 })
+    if (response.code === 200) {
+      recentActivities.value = response.data.map(item => ({
+        ...item,
+        time: item.time ? new Date(item.time).toLocaleString('zh-CN') : ''
+      }))
+    }
+  } catch (error) {
+    console.error('加载最近活动失败:', error)
+  }
 }
 
 const initOrderTrendChart = () => {
@@ -336,10 +338,12 @@ const loadStatistics = async () => {
 
 const refreshData = () => {
   loadStatistics()
+  loadRecentActivities()
 }
 
 onMounted(async () => {
   await loadStatistics()
+  await loadRecentActivities()
   await nextTick()
   initOrderTrendChart()
   initOrderStatusChart()

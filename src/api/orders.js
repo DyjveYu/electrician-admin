@@ -43,3 +43,12 @@ export const getNonFiveStarOrders = (params) => {
     params
   })
 }
+
+// 获取最近活动
+export const getRecentActivities = (params) => {
+  return request({
+    url: '/admin/activities',
+    method: 'get',
+    params
+  })
+}
