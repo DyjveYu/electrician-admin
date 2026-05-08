@@ -35,7 +35,8 @@
         const finalAmount = order.final_amount ?? order.amount ?? null;
         const repairContent = order.repair_content ?? order.completion_note ?? null;
 
-        if (st === 'cancelled' || st === 'closed') return { code: 'closed', text: '交易关闭', tag: 'b-danger' };
+        if (st === 'cancelled') return { code: 'cancelled', text: '订单已取消', tag: 'b-danger' };
+        if (st === 'closed') return { code: 'closed', text: '交易关闭', tag: 'b-danger' };
         if (st === 'cancel_pending') return { code: 'cancel_pending', text: '交易关闭（取消处理中）', tag: 'b-danger' };
         if (st === 'pending_payment' || (st === 'pending' && !hasPaidPrepay)) return { code: 'prepay_pending', text: '待支付预付款', tag: 'b-info' };
         if (st === 'pending' && hasPaidPrepay && !electricianId) return { code: 'waiting_accept', text: '待接单', tag: 'b-warning' };

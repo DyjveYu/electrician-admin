@@ -30,5 +30,13 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        admin: resolve(__dirname, 'index.html'),
+        mobile: resolve(__dirname, 'mobile.html')
+      }
+    }
   }
 })
