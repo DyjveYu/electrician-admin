@@ -100,6 +100,8 @@
 
         <el-table-column prop="real_name" label="姓名" width="100" />
 
+        <el-table-column prop="work_no" label="工号" width="120" />
+
         <el-table-column prop="status" label="认证状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
@@ -203,6 +205,7 @@
           <el-descriptions-item label="真实姓名">{{ currentElectrician.real_name }}</el-descriptions-item>
           <el-descriptions-item label="身份证号">{{ currentElectrician.id_card }}</el-descriptions-item>
           <el-descriptions-item label="电工证编号">{{ currentElectrician.electrician_license }}</el-descriptions-item>
+          <el-descriptions-item label="工号">{{ currentElectrician.work_no || '-' }}</el-descriptions-item>
           <el-descriptions-item label="证书开始日期">{{ formatDate(currentElectrician.cert_start_date) }}</el-descriptions-item>
           <el-descriptions-item label="证书结束日期">
             <span :class="{ 'text-danger': isExpiringSoon(currentElectrician.cert_end_date) }">
