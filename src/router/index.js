@@ -54,6 +54,18 @@ const router = createRouter({
           meta: { title: '非五星订单', icon: 'Star' }
         },
         {
+          path: '/partners',
+          name: 'Partners',
+          component: () => import('@/views/Partners.vue'),
+          meta: { title: '合作伙伴管理', icon: 'Connection' }
+        },
+        {
+          path: '/partners/:id/stats',
+          name: 'PartnerStats',
+          component: () => import('@/views/PartnerStats.vue'),
+          meta: { title: '合作伙伴统计', hidden: true }
+        },
+        {
           path: '/messages',
           name: 'Messages',
           component: () => import('@/views/Messages.vue'),

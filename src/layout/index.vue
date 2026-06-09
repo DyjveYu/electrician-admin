@@ -30,6 +30,11 @@
           <template #title>电工管理</template>
         </el-menu-item>
 
+        <el-menu-item index="/partners">
+          <el-icon><Connection /></el-icon>
+          <template #title>合作伙伴管理</template>
+        </el-menu-item>
+
         <el-menu-item index="/orders">
           <el-icon><Document /></el-icon>
           <template #title>工单管理</template>
@@ -287,6 +292,7 @@ const currentPageTitle = computed(() => {
     '/admins': '管理员中心',
     '/users': '用户管理',
     '/electricians': '电工管理',
+    '/partners': '合作伙伴管理',
     '/orders': '工单管理',
     '/orders/non-five-star': '非五星订单',
     '/messages': '系统通知',
