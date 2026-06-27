@@ -54,6 +54,12 @@ const router = createRouter({
           meta: { title: '非五星订单', icon: 'Star' }
         },
         {
+          path: '/enterprises',
+          name: 'Enterprises',
+          component: () => import('@/views/Enterprises.vue'),
+          meta: { title: '企业用户管理', icon: 'OfficeBuilding' }
+        },
+        {
           path: '/partners',
           name: 'Partners',
           component: () => import('@/views/Partners.vue'),

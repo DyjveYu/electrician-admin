@@ -8,7 +8,7 @@
           <el-input
             v-model="searchForm.search"
             placeholder="搜索用户手机号或昵称"
-            style="width: 300px"
+            style="width: 200px"
             clearable
             @keyup.enter="handleSearch"
           >

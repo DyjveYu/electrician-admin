@@ -30,6 +30,11 @@
           <template #title>电工管理</template>
         </el-menu-item>
 
+        <el-menu-item index="/enterprises">
+          <el-icon><OfficeBuilding /></el-icon>
+          <template #title>企业用户管理</template>
+        </el-menu-item>
+
         <el-menu-item index="/partners">
           <el-icon><Connection /></el-icon>
           <template #title>合作伙伴管理</template>
