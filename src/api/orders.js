@@ -52,6 +52,14 @@ export const getNonFiveStarOrders = (params) => {
   })
 }
 
+// 手动触发多日工程进入评价阶段
+export const triggerProjectReview = (id) => {
+  return request({
+    url: `/admin/orders/${id}/trigger-review`,
+    method: 'post'
+  })
+}
+
 // 获取最近活动
 export const getRecentActivities = (params) => {
   return request({

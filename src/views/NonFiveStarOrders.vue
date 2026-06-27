@@ -20,12 +20,13 @@
           <el-select
             v-model="searchForm.status"
             placeholder="订单状态"
-            style="width: 180px"
+            style="width: 200px"
             clearable
             @change="handleSearch"
           >
             <el-option label="待二次评价" value="pending_second_review" />
             <el-option label="已完成未结算" value="completed_unsettle" />
+            <el-option label="多日工程-未结算" value="completed_unsettle" />
           </el-select>
 
           <el-button type="primary" @click="handleSearch">
@@ -70,6 +71,14 @@
       >
         <el-table-column prop="order_no" label="工单号" width="150" />
 
+        <el-table-column prop="order_type" label="工单类型" width="110">
+          <template #default="{ row }">
+            <el-tag v-if="row.order_type === 'enterprise_project'" type="primary" size="small">多日工程</el-tag>
+            <el-tag v-else-if="row.order_type === 'enterprise_quick'" type="success" size="small">企业快修</el-tag>
+            <el-tag v-else type="info" size="small">个人快修</el-tag>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="user_phone" label="用户账号" width="130">
           <template #default="{ row }">
             <span>{{ row.user?.phone || '-' }}</span>
@@ -82,10 +91,10 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="status" label="状态" width="120">
+        <el-table-column prop="status" label="状态" width="140">
           <template #default="{ row }">
-            <el-tag :type="getStatusTagType(row.status)">
-              {{ getStatusText(row.status) }}
+            <el-tag :type="getStatusTagType(row.displayStatus || row.status)">
+              {{ getStatusText(row.displayStatus || row.status, row._isProjectEntry) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -109,9 +118,9 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="final_amount" label="订单金额" width="100">
+        <el-table-column prop="order_amount" label="订单金额" width="110">
           <template #default="{ row }">
-            <span>¥{{ row.final_amount || 0 }}</span>
+            <span>¥{{ row._isProjectEntry ? (row.final_amount || row.proj_total_amount || 0) : (row.final_amount || 0) }}</span>
           </template>
         </el-table-column>
 
@@ -157,51 +166,109 @@
     <!-- 订单详情对话框 -->
     <el-dialog
       v-model="detailDialogVisible"
-      title="订单详情"
-      width="900px"
+      title="工单详情"
+      width="1000px"
     >
       <div v-if="currentOrder" class="order-detail">
         <el-row :gutter="24">
-          <el-col :span="12">
-            <el-descriptions title="基本信息" :column="1" border>
+          <el-col :span="24">
+            <el-descriptions title="基本信息" :column="1" border label-width="140px">
               <el-descriptions-item label="工单号">{{ currentOrder.order_no }}</el-descriptions-item>
-              <el-descriptions-item label="服务类型">{{ currentOrder.serviceType?.name || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="订单类型">
+                <el-tag v-if="currentOrder.order_type === 'enterprise_project'" type="warning" size="small">多日工程</el-tag>
+                <el-tag v-else-if="currentOrder.order_type === 'enterprise_quick'" type="success" size="small">企业快修</el-tag>
+                <el-tag v-else type="info" size="small">个人快修</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="服务类型">{{ currentOrder.service_type_name || currentOrder.serviceType?.name }}</el-descriptions-item>
               <el-descriptions-item label="问题描述">{{ currentOrder.description }}</el-descriptions-item>
-              <el-descriptions-item label="服务地址">{{ currentOrder.service_address }}</el-descriptions-item>
+              <el-descriptions-item label="服务地址">{{ currentOrder.address?.detail_address || currentOrder.service_address || '-' }}</el-descriptions-item>
               <el-descriptions-item label="联系人">{{ currentOrder.contact_name }}</el-descriptions-item>
               <el-descriptions-item label="联系电话">{{ currentOrder.contact_phone }}</el-descriptions-item>
+              <el-descriptions-item v-if="currentOrder.order_type === 'enterprise_project'" label="当前状态">
+                <el-tag :type="getStatusTagType(currentOrder.status)">
+                  {{ getStatusText(currentOrder.status) }}
+                </el-tag>
+              </el-descriptions-item>
             </el-descriptions>
           </el-col>
 
-          <el-col :span="12">
-            <el-descriptions title="状态与费用" :column="1" border>
+          <el-col v-if="currentOrder.order_type !== 'enterprise_project'" :span="12">
+            <el-descriptions title="状态信息" :column="1" border label-width="140px">
               <el-descriptions-item label="当前状态">
                 <el-tag :type="getStatusTagType(currentOrder.status)">
                   {{ getStatusText(currentOrder.status) }}
                 </el-tag>
               </el-descriptions-item>
-              <el-descriptions-item label="用户">{{ currentOrder.user?.phone || '-' }}</el-descriptions-item>
-              <el-descriptions-item label="电工">{{ currentOrder.electrician?.phone || '未分配' }}</el-descriptions-item>
-              <el-descriptions-item label="订单金额">
-                <span>¥{{ currentOrder.final_amount || 0 }}</span>
-              </el-descriptions-item>
-              <el-descriptions-item label="创建时间">{{ formatDateTime(currentOrder.created_at) }}</el-descriptions-item>
-              <el-descriptions-item label="完成时间">
-                {{ currentOrder.completed_at ? formatDateTime(currentOrder.completed_at) : '-' }}
-              </el-descriptions-item>
+              <el-descriptions-item label="用户">{{ currentOrder.user?.phone || currentOrder.user_phone || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="电工">{{ currentOrder.electrician_name || (currentOrder.electrician?.phone) || '未分配' }}</el-descriptions-item>
             </el-descriptions>
           </el-col>
         </el-row>
 
-        <!-- 评价信息 -->
-        <div v-if="currentOrder.Review" class="review-section">
+        <!-- 多日工程专属信息 -->
+        <div v-if="currentOrder.order_type === 'enterprise_project' && currentOrder.electricians" class="project-section">
+          <h4>多日工程信息</h4>
+          <el-descriptions :column="2" border style="margin-bottom: 16px">
+            <el-descriptions-item label="工单总额">¥{{ (currentOrder.proj_total_amount || currentOrder.final_amount || 0) }}</el-descriptions-item>
+            <el-descriptions-item label="需要电工人数">{{ currentOrder.proj_required_count || '-' }}人</el-descriptions-item>
+            <el-descriptions-item label="平台服务费(15%)">¥{{ currentOrder.platformFee }}</el-descriptions-item>
+            <el-descriptions-item label="工程费(85%)">¥{{ currentOrder.projectFee }}</el-descriptions-item>
+            <el-descriptions-item label="电工费用/人">¥{{ currentOrder.electricianFee }}</el-descriptions-item>
+            <el-descriptions-item label="工程时间">{{ currentOrder.proj_start_time ? formatDateTime(currentOrder.proj_start_time) : '-' }} 至 {{ currentOrder.proj_end_time ? formatDateTime(currentOrder.proj_end_time) : '-' }}</el-descriptions-item>
+          </el-descriptions>
+
+          <h4 style="margin-top: 16px">已招募电工（{{ currentOrder.electricians.length }}人）</h4>
+          <el-table :data="currentOrder.electricians" size="small" max-height="300">
+            <el-table-column prop="name" label="姓名" width="100" />
+            <el-table-column prop="workNo" label="工号" width="120" />
+            <el-table-column prop="phone" label="手机号" width="130" />
+            <el-table-column prop="status" label="状态" width="110" align="center">
+              <template #default="{ row }">
+                <el-tag :type="getProjectElectricianStatusTag(row.status)" size="small">
+                  {{ getProjectElectricianStatusText(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="settledAmount" label="已结算金额" width="120" align="right">
+              <template #default="{ row }">
+                ¥{{ row.settledAmount ? row.settledAmount.toFixed(2) : '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="企业评价电工" width="160">
+              <template #default="{ row }">
+                <template v-if="row.enterpriseReview">
+                  <el-rate :model-value="row.enterpriseReview.rating" disabled size="small" />
+                  <span class="review-text">{{ row.enterpriseReview.content || '无内容' }}</span>
+                </template>
+                <span v-else class="text-muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="电工评价企业" width="160">
+              <template #default="{ row }">
+                <template v-if="row.electricianReview">
+                  <el-rate :model-value="row.electricianReview.rating" disabled size="small" />
+                  <span class="review-text">{{ row.electricianReview.content || '无内容' }}</span>
+                </template>
+                <span v-else class="text-muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="joinedAt" label="接单时间" min-width="160">
+              <template #default="{ row }">
+                {{ row.joinedAt ? formatDateTime(row.joinedAt) : '-' }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- 评价信息（非多日工程） -->
+        <div v-if="currentOrder.order_type !== 'enterprise_project' && currentOrder.review" class="review-section">
           <h4>用户评价</h4>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="评分">
-              <el-rate v-model="currentOrder.Review.rating" disabled text-color="#ff9900" />
+              <el-rate v-model="currentOrder.review.rating" disabled />
             </el-descriptions-item>
-            <el-descriptions-item label="评价内容">{{ currentOrder.Review.content || '无' }}</el-descriptions-item>
-            <el-descriptions-item label="评价时间">{{ formatDateTime(currentOrder.Review.created_at) }}</el-descriptions-item>
+            <el-descriptions-item label="评价内容">{{ currentOrder.review.content || '无' }}</el-descriptions-item>
+            <el-descriptions-item label="评价时间">{{ formatDateTime(currentOrder.review.created_at) }}</el-descriptions-item>
           </el-descriptions>
         </div>
       </div>
@@ -215,7 +282,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getNonFiveStarOrders } from '@/api/orders'
+import { getNonFiveStarOrders, getOrderDetail } from '@/api/orders'
 import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
@@ -243,17 +310,49 @@ const orderStats = reactive({
 const getStatusTagType = (status) => {
   const typeMap = {
     'pending_second_review': 'warning',
-    'completed_unsettle': 'danger'
+    'completed_unsettle': 'danger',
+    'completed_unsettle': 'danger',
+    'reviewing': 'info'
   }
   return typeMap[status] || 'info'
 }
 
-const getStatusText = (status) => {
+const getStatusText = (status, isProjectEntry) => {
+  if (isProjectEntry) {
+    const projectMap = {
+      'pending_second_review': '多日工程-待二次评价',
+      'completed_unsettle': '多日工程-未结算',
+      'reviewing': '多日工程-评价中'
+    }
+    return projectMap[status] || status || '未知'
+  }
   const textMap = {
     'pending_second_review': '待二次评价',
     'completed_unsettle': '已完成未结算'
   }
-  return textMap[status] || '未知'
+  return textMap[status] || status || '未知'
+}
+
+const getProjectElectricianStatusText = (status) => {
+  const map = {
+    in_progress: '施工中',
+    pending_review: '待评价',
+    pending_second_review: '待二次评价',
+    completed_settled: '已结算',
+    completed_unsettle: '未结算'
+  }
+  return map[status] || status || '未知'
+}
+
+const getProjectElectricianStatusTag = (status) => {
+  const map = {
+    in_progress: '',
+    pending_review: 'warning',
+    pending_second_review: 'warning',
+    completed_settled: 'success',
+    completed_unsettle: 'danger'
+  }
+  return map[status] || 'info'
 }
 
 const formatDateTime = (dateString) => {
@@ -318,8 +417,18 @@ const handleCurrentChange = (page) => {
   loadOrderList()
 }
 
-const handleViewDetail = (order) => {
-  currentOrder.value = order
+const handleViewDetail = async (order) => {
+  try {
+    const response = await getOrderDetail(order.id)
+    if (response.code === 200) {
+      currentOrder.value = response.data
+    } else {
+      currentOrder.value = order
+    }
+  } catch (error) {
+    console.error('获取工单详情失败:', error)
+    currentOrder.value = order
+  }
   detailDialogVisible.value = true
 }
 
@@ -421,5 +530,31 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 500;
   color: #333;
+}
+
+.project-section {
+  margin-top: 24px;
+}
+
+.project-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.text-muted {
+  color: #999;
+}
+
+.review-text {
+  font-size: 12px;
+  color: #666;
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
 }
 </style>

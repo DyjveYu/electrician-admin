@@ -5,10 +5,21 @@
       <div class="table-toolbar">
         <div class="left">
           <h2>工单管理</h2>
+                    <el-select
+            v-model="searchForm.orderType"
+            placeholder="订单类型"
+            style="width: 150px"
+            clearable
+            @change="handleSearch"
+          >
+            <el-option label="个人快修" value="personal_quick" />
+            <el-option label="企业快修" value="enterprise_quick" />
+            <el-option label="多日工程" value="enterprise_project" />
+          </el-select>
           <el-input
             v-model="searchForm.keyword"
             placeholder="搜索工单号或用户手机号"
-            style="width: 300px"
+            style="width: 200px"
             clearable
             @keyup.enter="handleSearch"
           >
@@ -37,8 +48,13 @@
             <el-option label="已取消" value="cancelled" />
             <el-option label="取消处理中" value="cancel_pending" />
             <el-option label="交易关闭" value="closed" />
+            <el-option label="招募中" value="recruiting" />
+            <el-option label="名额已满" value="full" />
+            <el-option label="评价中" value="reviewing" />
           </el-select>
-          
+
+
+
           <el-date-picker
             v-model="searchForm.dateRange"
             type="daterange"
@@ -106,6 +122,14 @@
         <el-table-column type="selection" width="55" />
 
         <el-table-column prop="order_no" label="工单号" width="150" />
+
+        <el-table-column prop="order_type" label="订单类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.order_type === 'enterprise_project'" type="warning" size="small">多日工程</el-tag>
+            <el-tag v-else-if="row.order_type === 'enterprise_quick'" type="success" size="small">企业快修</el-tag>
+            <el-tag v-else type="info" size="small">个人快修</el-tag>
+          </template>
+        </el-table-column>
 
         <el-table-column prop="user_phone" label="创建人账号" width="130">
           <template #default="{ row }">
@@ -188,29 +212,39 @@
     <el-dialog
       v-model="detailDialogVisible"
       title="工单详情"
-      width="900px"
+      width="1000px"
     >
       <div v-if="currentOrder" class="order-detail">
         <el-row :gutter="24">
-          <el-col :span="12">
-            <el-descriptions title="基本信息" :column="1" border>
+          <el-col :span="24">
+            <el-descriptions title="基本信息" :column="1" border label-width="140px">
               <el-descriptions-item label="工单号">{{ currentOrder.order_no }}</el-descriptions-item>
+              <el-descriptions-item label="订单类型">
+                <el-tag v-if="currentOrder.order_type === 'enterprise_project'" type="warning" size="small">多日工程</el-tag>
+                <el-tag v-else-if="currentOrder.order_type === 'enterprise_quick'" type="success" size="small">企业快修</el-tag>
+                <el-tag v-else type="info" size="small">个人快修</el-tag>
+              </el-descriptions-item>
               <el-descriptions-item label="服务类型">{{ currentOrder.service_type_name || currentOrder.serviceType?.name }}</el-descriptions-item>
               <el-descriptions-item label="问题描述">{{ currentOrder.description }}</el-descriptions-item>
               <el-descriptions-item label="服务地址">{{ currentOrder.address?.detail_address || currentOrder.service_address || '-' }}</el-descriptions-item>
               <el-descriptions-item label="联系人">{{ currentOrder.contact_name }}</el-descriptions-item>
               <el-descriptions-item label="联系电话">{{ currentOrder.contact_phone }}</el-descriptions-item>
-              <el-descriptions-item label="预约时间">{{ currentOrder.appointment_time ? formatDateTime(currentOrder.appointment_time) : '随时' }}</el-descriptions-item>
-              <el-descriptions-item label="预付款金额">
+              <el-descriptions-item v-if="currentOrder.order_type === 'enterprise_project'" label="当前状态">
+                <el-tag :type="getStatusTagType(currentOrder.status)">
+                  {{ getStatusText(currentOrder.status) }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item v-if="currentOrder.order_type !== 'enterprise_project'" label="预约时间">{{ currentOrder.appointment_time ? formatDateTime(currentOrder.appointment_time) : '随时' }}</el-descriptions-item>
+              <el-descriptions-item v-if="currentOrder.order_type !== 'enterprise_project'" label="预付款金额">
                 <span v-if="currentOrder.prepay_amount">¥{{ currentOrder.prepay_amount }}</span>
                 <span v-else-if="currentOrder.amount">¥{{ currentOrder.amount }}</span>
                 <span v-else class="text-muted">-</span>
               </el-descriptions-item>
-              <el-descriptions-item label="维修金额">
+              <el-descriptions-item v-if="currentOrder.order_type !== 'enterprise_project'" label="维修金额">
                 <span v-if="currentOrder.final_amount || currentOrder.repair_amount">¥{{ currentOrder.final_amount || currentOrder.repair_amount }}</span>
                 <span v-else class="text-muted">-</span>
               </el-descriptions-item>
-              <el-descriptions-item label="总金额">
+              <el-descriptions-item v-if="currentOrder.order_type !== 'enterprise_project'" label="总金额">
                 <span v-if="currentOrder.prepay_amount && (currentOrder.final_amount || currentOrder.repair_amount)">
                   ¥{{ (Number(currentOrder.prepay_amount) + Number(currentOrder.final_amount || currentOrder.repair_amount)).toFixed(2) }}
                 </span>
@@ -220,8 +254,8 @@
             </el-descriptions>
           </el-col>
           
-          <el-col :span="12">
-            <el-descriptions title="状态信息" :column="1" border>
+          <el-col v-if="currentOrder.order_type !== 'enterprise_project'" :span="12">
+            <el-descriptions title="状态信息" :column="1" border label-width="140px">
               <el-descriptions-item label="当前状态">
                 <el-tag :type="getStatusTagType(currentOrder.status)">
                   {{ getStatusText(currentOrder.status) }}
@@ -240,6 +274,61 @@
           </el-col>
         </el-row>
         
+        <!-- 多日工程专属信息 -->
+        <div v-if="currentOrder.order_type === 'enterprise_project' && currentOrder.electricians" class="project-section">
+          <h4>多日工程信息</h4>
+          <el-descriptions :column="2" border style="margin-bottom: 16px">
+            <el-descriptions-item label="工单总额">¥{{ (currentOrder.proj_total_amount || currentOrder.final_amount || 0) }}</el-descriptions-item>
+            <el-descriptions-item label="需要电工人数">{{ currentOrder.proj_required_count || '-' }}人</el-descriptions-item>
+            <el-descriptions-item label="平台服务费(15%)">¥{{ currentOrder.platformFee }}</el-descriptions-item>
+            <el-descriptions-item label="工程费(85%)">¥{{ currentOrder.projectFee }}</el-descriptions-item>
+            <el-descriptions-item label="电工费用/人">¥{{ currentOrder.electricianFee }}</el-descriptions-item>
+            <el-descriptions-item label="工程时间">{{ currentOrder.proj_start_time ? formatDateTime(currentOrder.proj_start_time) : '-' }} 至 {{ currentOrder.proj_end_time ? formatDateTime(currentOrder.proj_end_time) : '-' }}</el-descriptions-item>
+          </el-descriptions>
+
+          <h4 style="margin-top: 16px">已招募电工（{{ currentOrder.electricians.length }}人）</h4>
+          <el-table :data="currentOrder.electricians" size="small" max-height="300">
+            <el-table-column prop="name" label="姓名" width="100" />
+            <el-table-column prop="workNo" label="工号" width="120" />
+            <el-table-column prop="phone" label="手机号" width="130" />
+            <el-table-column prop="status" label="状态" width="110" align="center">
+              <template #default="{ row }">
+                <el-tag :type="getProjectElectricianStatusTag(row.status)" size="small">
+                  {{ getProjectElectricianStatusText(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="settledAmount" label="已结算金额" width="120" align="right">
+              <template #default="{ row }">
+                ¥{{ row.settledAmount ? row.settledAmount.toFixed(2) : '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="企业评价电工" width="160">
+              <template #default="{ row }">
+                <template v-if="row.enterpriseReview">
+                  <el-rate :model-value="row.enterpriseReview.rating" disabled size="small" />
+                  <span class="review-text">{{ row.enterpriseReview.content || '无内容' }}</span>
+                </template>
+                <span v-else class="text-muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="电工评价企业" width="160">
+              <template #default="{ row }">
+                <template v-if="row.electricianReview">
+                  <el-rate :model-value="row.electricianReview.rating" disabled size="small" />
+                  <span class="review-text">{{ row.electricianReview.content || '无内容' }}</span>
+                </template>
+                <span v-else class="text-muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="joinedAt" label="接单时间" min-width="160">
+              <template #default="{ row }">
+                {{ row.joinedAt ? formatDateTime(row.joinedAt) : '-' }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
         <!-- 问题图片 -->
         <div v-if="currentOrder.images && currentOrder.images.length > 0" class="images-section">
           <h4>问题图片</h4>
@@ -265,8 +354,8 @@
           </el-descriptions>
         </div>
         
-        <!-- 评价信息 -->
-        <div v-if="currentOrder.review" class="review-section">
+        <!-- 评价信息（多日工程不显示，评价在已招募电工列表中） -->
+        <div v-if="currentOrder.review && currentOrder.order_type !== 'enterprise_project'" class="review-section">
           <h4>用户评价</h4>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="评分">
@@ -342,7 +431,18 @@
       </div>
       
       <template #footer>
-        <el-button @click="detailDialogVisible = false">关闭</el-button>
+        <div style="display:flex;justify-content:space-between;width:100%">
+          <el-button
+            v-if="currentOrder.order_type === 'enterprise_project' && currentOrder.status === 'full'"
+            type="warning"
+            :loading="triggeringReview"
+            @click="handleTriggerReview"
+          >
+            手动触发任务到期
+          </el-button>
+          <span v-else></span>
+          <el-button @click="detailDialogVisible = false">关闭</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -350,7 +450,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics } from '@/api/orders'
+import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview } from '@/api/orders'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
@@ -358,10 +458,12 @@ const orderList = ref([])
 const selectedOrders = ref([])
 const detailDialogVisible = ref(false)
 const currentOrder = ref(null)
+const triggeringReview = ref(false)
 
 const searchForm = reactive({
   keyword: '',
   status: '',
+  orderType: '',
   dateRange: null
 })
 
@@ -392,7 +494,10 @@ const getStatusTagType = (status) => {
     'completed_settle_failed': 'danger', // 已完成支付电工费用失败
     'cancelled': 'danger',           // 已取消
     'cancel_pending': 'warning',     // 取消处理中
-    'closed': 'info'                // 交易关闭
+    'closed': 'info',               // 交易关闭
+    'recruiting': 'warning',         // 招募中（多日工程）
+    'full': 'primary',              // 名额已满（多日工程）
+    'reviewing': 'warning'          // 评价中（多日工程）
   }
   return typeMap[status] || 'info'
 }
@@ -411,9 +516,34 @@ const getStatusText = (status) => {
     'completed_settle_failed': '支付失败',
     'cancelled': '已取消',
     'cancel_pending': '取消处理中',
-    'closed': '交易关闭'
+    'closed': '交易关闭',
+    'recruiting': '招募中',
+    'full': '名额已满',
+    'reviewing': '评价中'
   }
   return textMap[status] || '未知'
+}
+
+const getProjectElectricianStatusText = (status) => {
+  const map = {
+    in_progress: '施工中',
+    pending_review: '待评价',
+    pending_second_review: '待二次评价',
+    completed_settled: '已结算',
+    completed_unsettle: '未结算'
+  }
+  return map[status] || status || '未知'
+}
+
+const getProjectElectricianStatusTag = (status) => {
+  const map = {
+    in_progress: '',
+    pending_review: 'warning',
+    pending_second_review: 'warning',
+    completed_settled: 'success',
+    completed_unsettle: 'danger'
+  }
+  return map[status] || 'info'
 }
 
 const getRefundStatusText = (status) => {
@@ -446,7 +576,8 @@ const loadOrderList = async () => {
       page: pagination.page,
       limit: pagination.limit,
       search: searchForm.keyword,
-      status: searchForm.status
+      status: searchForm.status,
+      order_type: searchForm.orderType
     }
 
     if (searchForm.dateRange && searchForm.dateRange.length === 2) {
@@ -489,6 +620,7 @@ const handleReset = () => {
   Object.assign(searchForm, {
     keyword: '',
     status: '',
+    orderType: '',
     dateRange: null
   })
   handleSearch()
@@ -522,6 +654,38 @@ const handleViewDetail = async (order) => {
     console.error('获取工单详情失败:', error)
     currentOrder.value = order
     detailDialogVisible.value = true
+  }
+}
+
+const handleTriggerReview = async () => {
+  const order = currentOrder.value
+  if (!order) return
+
+  try {
+    await ElMessageBox.confirm(
+      `确认手动触发工单 ${order.order_no} 进入评价阶段？此操作将通知企业和电工。`,
+      '确认操作',
+      { confirmButtonText: '确认触发', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
+  triggeringReview.value = true
+  try {
+    const response = await triggerProjectReview(order.id)
+    if (response.code === 0 || response.code === 200) {
+      ElMessage.success('已触发进入评价阶段')
+      detailDialogVisible.value = false
+      loadOrderList()
+    } else {
+      ElMessage.error(response.message || '操作失败')
+    }
+  } catch (error) {
+    console.error('触发评价失败:', error)
+    ElMessage.error('操作失败')
+  } finally {
+    triggeringReview.value = false
   }
 }
 
@@ -703,6 +867,17 @@ onMounted(() => {
 
 .text-muted {
   color: #999;
+}
+
+.review-text {
+  font-size: 12px;
+  color: #666;
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
 }
 
 /* 响应式设计 */
