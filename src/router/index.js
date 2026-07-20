@@ -72,6 +72,12 @@ const router = createRouter({
           meta: { title: '合作伙伴统计', hidden: true }
         },
         {
+          path: '/referrers',
+          name: 'Referrers',
+          component: () => import('@/views/Referrers.vue'),
+          meta: { title: '推荐达人管理', icon: 'Star' }
+        },
+        {
           path: '/messages',
           name: 'Messages',
           component: () => import('@/views/Messages.vue'),

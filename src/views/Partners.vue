@@ -159,20 +159,7 @@
           </el-select>
         </el-form-item>
 
-        <!-- 提成比例 -->
-        <el-form-item label="提成比例" prop="commissionRate">
-          <el-input-number
-            v-model="form.commissionRate"
-            :min="0.01"
-            :max="10.00"
-            :precision="2"
-            :step="0.01"
-            style="width: 200px"
-          />
-          <span style="margin-left: 8px; color: #999">%（范围 0.01% ~ 10.00%）</span>
-        </el-form-item>
-
-        <!-- 负责区域 -->
+        <!-- 负责区域（提成比例固定 3%） -->
         <el-form-item label="负责区域" prop="areas">
           <div class="area-manager">
             <!-- 已添加的区域列表 -->
@@ -215,6 +202,9 @@
               <el-icon><Plus /></el-icon>
               添加区域
             </el-button>
+          </div>
+          <div style="margin-top: 8px; color: #909399; font-size: 13px;">
+            提成比例：3%（固定）
           </div>
         </el-form-item>
       </el-form>
@@ -309,13 +299,11 @@ const formRef = ref(null)
 
 const form = reactive({
   electricianId: null,
-  commissionRate: undefined,
   areas: [{ province: '', city: '', district: '' }]
 })
 
 const formRules = {
   electricianId: [{ required: true, message: '请选择电工', trigger: 'change' }],
-  commissionRate: [{ required: true, message: '请输入提成比例', trigger: 'blur' }],
   areas: [
     {
       validator: (rule, value, callback) => {
@@ -462,9 +450,6 @@ const handleEdit = async (row) => {
   // 预填表单数据
   form.electricianId = row.electricianId
 
-  // 解析 commissionRate（可能是字符串如 "10.00"）
-  form.commissionRate = parseFloat(row.commissionRate) || undefined
-
   // 预填区域
   if (row.areas && row.areas.length > 0) {
     form.areas = row.areas.map(a => ({ ...a }))
@@ -492,7 +477,6 @@ const handleEdit = async (row) => {
 
 const resetForm = () => {
   form.electricianId = null
-  form.commissionRate = undefined
   form.areas = [{ province: '', city: '', district: '' }]
   electricianOptions.value = []
   // 清理所有动态选项
@@ -514,7 +498,6 @@ const handleSubmit = async () => {
     try {
       const payload = {
         electricianId: form.electricianId,
-        commissionRate: form.commissionRate,
         areas: form.areas.map(a => ({
           province: a.province,
           city: a.city,

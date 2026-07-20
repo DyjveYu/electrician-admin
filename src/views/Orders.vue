@@ -428,6 +428,49 @@
             </el-descriptions>
           </div>
         </div>
+
+        <!-- 工单金额分配统计（仅 completed_settled 状态展示） -->
+        <div v-if="currentOrder.status === 'completed_settled' && orderFinance.totalAmount > 0" class="finance-section">
+          <h4>工单金额分配统计</h4>
+          <div class="finance-row">
+            <div class="finance-bar">
+              <div class="finance-segment electrician-seg" :style="{ width: '85%' }">
+                <span class="seg-label">电工 85%</span>
+              </div>
+              <div v-if="orderFinance.promoterAmount > 0" class="finance-segment promoter-seg" style="width:3%">
+                <span class="seg-label">推荐达人 3%</span>
+              </div>
+              <div v-if="orderFinance.partnerAmount > 0" class="finance-segment partner-seg" style="width:3%">
+                <span class="seg-label">合作伙伴 3%</span>
+              </div>
+              <div class="finance-segment platform-seg" :style="{ width: orderFinance.platformPct + '%' }">
+                <span class="seg-label">平台 {{ orderFinance.platformPct }}%</span>
+              </div>
+            </div>
+          </div>
+          <el-descriptions :column="5" border size="small">
+            <el-descriptions-item label="工单总费用" align="center">
+              <span class="amount-total">¥{{ orderFinance.totalAmount.toFixed(2) }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="电工分成(85%)" align="center">
+              <span class="amount-electrician">¥{{ orderFinance.electricianAmount.toFixed(2) }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="推荐达人分成(3%)" align="center">
+              <span class="amount-promoter">¥{{ orderFinance.promoterAmount.toFixed(2) }}</span>
+              <div v-if="orderFinance.promoterAmount > 0" class="sub-tag promoter-tag">有</div>
+              <div v-else class="sub-tag none-tag">无</div>
+            </el-descriptions-item>
+            <el-descriptions-item label="合作伙伴分成(3%)" align="center">
+              <span class="amount-partner">¥{{ orderFinance.partnerAmount.toFixed(2) }}</span>
+              <div v-if="orderFinance.partnerAmount > 0" class="sub-tag partner-tag">有</div>
+              <div v-else class="sub-tag none-tag">无</div>
+            </el-descriptions-item>
+            <el-descriptions-item label="平台分成" align="center">
+              <span class="amount-platform">¥{{ orderFinance.platformAmount.toFixed(2) }}</span>
+              <div class="sub-tag plat-tag">{{ orderFinance.platformPct }}%</div>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
       </div>
       
       <template #footer>
@@ -449,7 +492,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview } from '@/api/orders'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -761,6 +804,36 @@ const handleExport = () => {
   ElMessage.info('导出功能开发中...')
 }
 
+// ===== 工单金额分配统计 =====
+const orderFinance = computed(() => {
+  const order = currentOrder.value
+  if (!order) return { totalAmount: 0, electricianAmount: 0, promoterAmount: 0, partnerAmount: 0, platformAmount: 0, platformPct: 15 }
+
+  const prepay = Number(order.prepay_amount || 0)
+  const finalAmt = Number(order.final_amount || order.repair_amount || 0)
+  const totalAmount = prepay + finalAmt
+  const electricianAmount = Number((totalAmount * 0.85).toFixed(2))
+
+  // 根据实际佣金记录区分推荐达人/合作伙伴
+  const hasCommission = order.commission_amount != null
+  const commissionType = order.referral_type // 'promoter' | 'partner' | null
+  const rawCommission = hasCommission ? Number(order.commission_amount) : 0
+
+  let promoterAmount = 0
+  let partnerAmount = 0
+  if (hasCommission && commissionType === 'promoter') {
+    promoterAmount = rawCommission
+  } else if (hasCommission && commissionType === 'partner') {
+    partnerAmount = rawCommission
+  }
+  // 没有 commission_amount 时两者皆为 0
+
+  const platformAmount = Number((totalAmount - electricianAmount - promoterAmount - partnerAmount).toFixed(2))
+  const platformPct = hasCommission ? 12 : 15
+
+  return { totalAmount, electricianAmount, promoterAmount, partnerAmount, platformAmount, platformPct }
+})
+
 onMounted(() => {
   loadOrderList()
   loadStats()
@@ -878,6 +951,123 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 140px;
+}
+
+/* 工单金额分配统计 */
+.finance-section {
+  margin-top: 24px;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+}
+
+.finance-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.finance-row {
+  margin-bottom: 12px;
+}
+
+.finance-bar {
+  display: flex;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.finance-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.3s ease;
+  min-width: fit-content;
+}
+
+.seg-label {
+  color: #fff;
+  white-space: nowrap;
+  padding: 0 8px;
+}
+
+.electrician-seg {
+  background: linear-gradient(135deg, #52c41a, #73d13d);
+}
+
+.promoter-seg {
+  background: linear-gradient(135deg, #1890ff, #40a9ff);
+}
+
+.partner-seg {
+  background: linear-gradient(135deg, #722ed1, #b37feb);
+}
+
+.platform-seg {
+  background: linear-gradient(135deg, #fa8c16, #ffa940);
+}
+
+.amount-total {
+  font-weight: 700;
+  font-size: 16px;
+  color: #333;
+}
+
+.amount-electrician {
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.amount-promoter {
+  color: #1890ff;
+  font-weight: 600;
+}
+
+.amount-partner {
+  color: #722ed1;
+  font-weight: 600;
+}
+
+.amount-platform {
+  color: #fa8c16;
+  font-weight: 600;
+}
+
+.sub-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 0 6px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+
+.promoter-tag {
+  color: #1890ff;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+}
+
+.partner-tag {
+  color: #722ed1;
+  background: #f9f0ff;
+  border: 1px solid #d3adf7;
+}
+
+.none-tag {
+  color: #999;
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+}
+
+.plat-tag {
+  color: #fa8c16;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
 }
 
 /* 响应式设计 */

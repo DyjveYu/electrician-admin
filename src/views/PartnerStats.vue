@@ -34,7 +34,8 @@
 
           <el-empty v-if="!current" description="暂无统计数据" />
 
-          <el-row v-else :gutter="16" class="stats-grid">
+          <!-- 第一行：原有统计 -->
+          <el-row :gutter="16" class="stats-grid">
             <el-col :span="6">
               <el-statistic title="区域电工人数" :value="current.totalElectricians" />
             </el-col>
@@ -46,6 +47,18 @@
             </el-col>
             <el-col :span="6">
               <el-statistic title="当月提成金额" :value="current.totalCommission" prefix="¥" value-style="color: #0F9D58" />
+            </el-col>
+          </el-row>
+          <!-- 第二行：V1.1.2 新增统计 -->
+          <el-row :gutter="16" class="stats-grid" style="margin-top: 16px;">
+            <el-col :span="8">
+              <el-statistic title="无推荐达人订单数" :value="current.noReferrerOrders" />
+            </el-col>
+            <el-col :span="8">
+              <el-statistic title="无推荐达人订单总额" :value="current.noReferrerAmount || 0" prefix="¥" />
+            </el-col>
+            <el-col :span="8">
+              <el-statistic title="实际应付佣金（3%）" :value="current.actualCommission || 0" prefix="¥" value-style="color: #0F9D58" />
             </el-col>
           </el-row>
         </div>
