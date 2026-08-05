@@ -37,6 +37,7 @@
           >
             <el-option label="普通用户" value="user" />
             <el-option label="电工" value="electrician" />
+            <el-option label="企业" value="enterprise" />
           </el-select>
           
           <el-button type="primary" @click="handleSearch">
@@ -70,21 +71,21 @@
         <el-table-column prop="id" label="ID" width="80" />
         
         <el-table-column prop="phone" label="手机号" width="130" />
-        
-        <el-table-column prop="nickname" label="昵称" width="120">
-          <template #default="{ row }">
-            <span>{{ row.nickname || '未设置' }}</span>
-          </template>
-        </el-table-column>
-        
+
         <el-table-column prop="current_role" label="当前角色" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.current_role === 'electrician' ? 'warning' : 'primary'">
-              {{ row.current_role === 'electrician' ? '电工' : '用户' }}
+            <el-tag :type="getRoleTagType(row.current_role)">
+              {{ getRoleText(row.current_role) }}
             </el-tag>
           </template>
         </el-table-column>
-        
+
+        <el-table-column prop="openid" label="OpenID" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.openid || '未绑定' }}
+          </template>
+        </el-table-column>
+
         <el-table-column prop="can_be_electrician" label="电工认证" width="100">
           <template #default="{ row }">
             <el-tag :type="row.can_be_electrician ? 'success' : 'info'">
@@ -169,13 +170,14 @@
         <el-descriptions :column="2" border>
           <el-descriptions-item label="用户ID">{{ currentUser.id }}</el-descriptions-item>
           <el-descriptions-item label="手机号">{{ currentUser.phone }}</el-descriptions-item>
-          <el-descriptions-item label="昵称">{{ currentUser.nickname || '未设置' }}</el-descriptions-item>
           <el-descriptions-item label="当前角色">
-            <el-tag :type="currentUser.current_role === 'electrician' ? 'warning' : 'primary'">
-              {{ currentUser.current_role === 'electrician' ? '电工' : '用户' }}
+            <el-tag :type="getRoleTagType(currentUser.current_role)">
+              {{ getRoleText(currentUser.current_role) }}
             </el-tag>
           </el-descriptions-item>
-          
+
+          <el-descriptions-item label="OpenID">{{ currentUser.openid || '未绑定' }}</el-descriptions-item>
+
           <el-descriptions-item label="电工认证">
             <el-tag :type="currentUser.can_be_electrician ? 'success' : 'info'">
               {{ currentUser.can_be_electrician ? '已认证' : '未认证' }}
@@ -221,6 +223,24 @@ const pagination = reactive({
   limit: 20,
   total: 0
 })
+
+const getRoleText = (role) => {
+  const roleMap = {
+    'user': '普通用户',
+    'electrician': '电工',
+    'enterprise': '企业'
+  }
+  return roleMap[role] || '未知'
+}
+
+const getRoleTagType = (role) => {
+  const typeMap = {
+    'user': 'primary',
+    'electrician': 'warning',
+    'enterprise': 'danger'
+  }
+  return typeMap[role] || 'info'
+}
 
 const getStatusTagType = (status) => {
   const typeMap = {
