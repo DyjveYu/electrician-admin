@@ -84,7 +84,20 @@
           </div>
           <div class="stat-content">
             <div class="stat-number">¥{{ formatNumber(stats.platformRevenue) }}</div>
-            <div class="stat-label">平台运营净收益(15%)</div>
+            <div class="stat-label">平台运营净收益(15%-佣金)</div>
+          </div>
+        </div>
+      </el-col>
+
+      <!-- 佣金支出卡片 -->
+      <el-col :xs="24" :sm="12" :lg="6">
+        <div class="stat-card">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #f97316);">
+            <el-icon><Coin /></el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">¥{{ formatNumber(stats.commissionExpense) }}</div>
+            <div class="stat-label">佣金支出(3%)</div>
           </div>
         </div>
       </el-col>
@@ -190,6 +203,7 @@ const stats = reactive({
   totalPaymentIncome: 0,
   electricianShare: 0,
   platformRevenue: 0,
+  commissionExpense: 0,
   totalRefunds: 0,
   totalDepositsPaid: 0,
   totalDepositsRefunded: 0
@@ -308,6 +322,7 @@ const loadStatistics = async () => {
         totalPaymentIncome: data.finance?.total_payment_income || 0,
         electricianShare: data.finance?.electrician_share || 0,
         platformRevenue: data.finance?.platform_revenue || 0,
+        commissionExpense: data.finance?.commission_expense || 0,
         totalRefunds: data.finance?.total_refunds || 0,
         totalDepositsPaid: data.finance?.total_deposits_paid || 0,
         totalDepositsRefunded: data.finance?.total_deposits_refunded || 0
