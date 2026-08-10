@@ -369,6 +369,7 @@ onMounted(async () => {
 
 .stats-row {
   margin-bottom: 24px;
+  row-gap: 24px;
 }
 
 .stat-card {
