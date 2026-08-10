@@ -45,6 +45,11 @@
           <template #title>推荐达人管理</template>
         </el-menu-item>
 
+        <el-menu-item index="/referrer-applications">
+          <el-icon><Check /></el-icon>
+          <template #title>推荐达人申请审核</template>
+        </el-menu-item>
+
         <el-menu-item index="/orders">
           <el-icon><Document /></el-icon>
           <template #title>工单管理</template>
@@ -304,6 +309,7 @@ const currentPageTitle = computed(() => {
     '/electricians': '电工管理',
     '/partners': '合作伙伴管理',
     '/referrers': '推荐达人管理',
+    '/referrer-applications': '推荐达人申请审核',
     '/orders': '工单管理',
     '/orders/non-five-star': '非五星订单',
     '/messages': '系统通知',
