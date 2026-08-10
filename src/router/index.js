@@ -78,6 +78,12 @@ const router = createRouter({
           meta: { title: '推荐达人管理', icon: 'Star' }
         },
         {
+          path: '/referrer-applications',
+          name: 'ReferrerApplications',
+          component: () => import('@/views/ReferrerApplications.vue'),
+          meta: { title: '推荐达人申请审核', icon: 'Checked' }
+        },
+        {
           path: '/messages',
           name: 'Messages',
           component: () => import('@/views/Messages.vue'),
