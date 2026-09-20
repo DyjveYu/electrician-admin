@@ -104,6 +104,15 @@
               <el-icon><Lock /></el-icon>
               冻结
             </el-button>
+            <el-button
+              v-else
+              type="success"
+              size="small"
+              @click="handleUnfreeze(row)"
+            >
+              <el-icon><Unlock /></el-icon>
+              解冻
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -235,12 +244,13 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Edit, Delete, Lock, DataAnalysis } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Edit, Delete, Lock, Unlock, DataAnalysis } from '@element-plus/icons-vue'
 import {
   getPartnerList,
   createPartner,
   updatePartner,
   freezePartner,
+  unfreezePartner,
   searchElectricians,
   getRegions,
   recalculatePartnerStats
@@ -546,6 +556,31 @@ const handleFreeze = async (row) => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('冻结合作伙伴失败:', error)
+    }
+  }
+}
+
+// ===== 解冻 =====
+const handleUnfreeze = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要解冻合作伙伴「${row.name}」吗？解冻后小程序重新展示合作伙伴入口，该电工重新参与区域佣金归属；冻结期间已完成的订单不追溯佣金。`,
+      '解冻确认',
+      {
+        confirmButtonText: '确定解冻',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    const res = await unfreezePartner(row.id)
+    if (res.code === 200) {
+      ElMessage.success('解冻成功')
+      loadList()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('解冻合作伙伴失败:', error)
     }
   }
 }

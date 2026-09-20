@@ -35,6 +35,14 @@ export const freezePartner = (id) => {
   })
 }
 
+// 解冻合作伙伴
+export const unfreezePartner = (id) => {
+  return request({
+    url: `/admin/partners/${id}/unfreeze`,
+    method: 'patch'
+  })
+}
+
 // 搜索电工（合作伙伴选择器）
 export const searchElectricians = (params) => {
   return request({

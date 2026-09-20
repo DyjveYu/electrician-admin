@@ -23,6 +23,7 @@
             <el-option label="已支付" value="paid" />
             <el-option label="退款中" value="refunding" />
             <el-option label="已退款" value="refunded" />
+            <el-option label="已过期" value="expired" />
           </el-select>
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
@@ -206,7 +207,8 @@ const getStatusTagType = (status) => {
     'pending': 'warning',
     'paid': 'success',
     'refunding': 'danger',
-    'refunded': 'info'
+    'refunded': 'info',
+    'expired': 'info'
   }
   return typeMap[status] || 'info'
 }
@@ -216,7 +218,8 @@ const getStatusText = (status) => {
     'pending': '待支付',
     'paid': '已支付',
     'refunding': '退款中',
-    'refunded': '已退款'
+    'refunded': '已退款',
+    'expired': '已过期'
   }
   return textMap[status] || '未知'
 }
