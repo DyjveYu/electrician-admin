@@ -18,6 +18,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         {
+          path: '/home-information/ads',
+          name: 'ContentAds',
+          component: () => import('@/views/ContentAds.vue'),
+          meta: { title: '广告维护', icon: 'Document' }
+        },
+        {
           path: '/dashboard',
           name: 'Dashboard',
           component: () => import('@/views/Dashboard.vue'),

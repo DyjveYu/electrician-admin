@@ -25,6 +25,10 @@ export default defineConfig({
     host: '0.0.0.0',  // 监听所有网络接口
     port: 8080,
     proxy: {
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:3000', //本地开发环境
         changeOrigin: true

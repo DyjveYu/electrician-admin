@@ -60,6 +60,11 @@
           <template #title>非五星订单</template>
         </el-menu-item>
 
+        <el-sub-menu index="/home-information" class="home-information-menu">
+          <template #title><el-icon><Document /></el-icon><span>首页信息管理</span></template>
+          <el-menu-item index="/home-information/ads">广告维护</el-menu-item>
+        </el-sub-menu>
+
         <el-menu-item index="/messages">
           <el-icon><Bell /></el-icon>
           <template #title>系统通知</template>
@@ -303,6 +308,7 @@ const passwordRules = {
 
 const currentPageTitle = computed(() => {
   const titleMap = {
+    '/home-information/ads': '广告维护',
     '/dashboard': '仪表盘',
     '/admins': '管理员中心',
     '/users': '用户管理',
@@ -431,6 +437,19 @@ const handleChangePassword = async () => {
 .sidebar-menu :deep(.el-menu-item.is-active) {
   background-color: #1890ff;
   color: #fff;
+}
+
+.sidebar-menu :deep(.home-information-menu > .el-sub-menu__title) {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.sidebar-menu :deep(.home-information-menu > .el-sub-menu__title:hover) {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+.sidebar-menu :deep(.home-information-menu .el-menu) {
+  background-color: #001529;
 }
 
 .layout-header {
