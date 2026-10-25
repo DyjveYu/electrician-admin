@@ -62,6 +62,7 @@
 
         <el-sub-menu index="/home-information" class="home-information-menu">
           <template #title><el-icon><Document /></el-icon><span>首页信息管理</span></template>
+          <el-menu-item index="/home-information/electrician-home">电工之家</el-menu-item>
           <el-menu-item index="/home-information/ads">广告维护</el-menu-item>
         </el-sub-menu>
 
@@ -308,6 +309,7 @@ const passwordRules = {
 
 const currentPageTitle = computed(() => {
   const titleMap = {
+    '/home-information/electrician-home': '电工之家',
     '/home-information/ads': '广告维护',
     '/dashboard': '仪表盘',
     '/admins': '管理员中心',

@@ -18,6 +18,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         {
+          path: '/home-information/electrician-home',
+          name: 'ElectricianHome',
+          component: () => import('@/views/ElectricianHome.vue'),
+          meta: { title: '电工之家', icon: 'Document' }
+        },
+        {
           path: '/home-information/ads',
           name: 'ContentAds',
           component: () => import('@/views/ContentAds.vue'),
