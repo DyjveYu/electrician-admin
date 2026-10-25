@@ -24,6 +24,12 @@ const router = createRouter({
           meta: { title: '电工之家', icon: 'Document' }
         },
         {
+          path: '/home-information/safety-knowledge',
+          name: 'SafetyKnowledge',
+          component: () => import('@/views/SafetyKnowledge.vue'),
+          meta: { title: '用电安全知识', icon: 'Document' }
+        },
+        {
           path: '/home-information/ads',
           name: 'ContentAds',
           component: () => import('@/views/ContentAds.vue'),
