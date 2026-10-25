@@ -64,13 +64,10 @@
           <template #title><el-icon><Document /></el-icon><span>首页信息管理</span></template>
           <el-menu-item index="/home-information/electrician-home">电工之家</el-menu-item>
           <el-menu-item index="/home-information/safety-knowledge">用电安全知识</el-menu-item>
+          <el-menu-item index="/home-information/notices">信息栏通知</el-menu-item>
           <el-menu-item index="/home-information/ads">广告维护</el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="/messages">
-          <el-icon><Bell /></el-icon>
-          <template #title>系统通知</template>
-        </el-menu-item>
 
         <el-menu-item index="/deposits">
           <el-icon><Wallet /></el-icon>
@@ -322,7 +319,7 @@ const currentPageTitle = computed(() => {
     '/referrer-applications': '推荐达人申请审核',
     '/orders': '工单管理',
     '/orders/non-five-star': '非五星订单',
-    '/messages': '系统通知',
+    '/home-information/notices': '信息栏通知',
     '/deposits': '押金管理'
   }
   return titleMap[route.path] || '未知页面'

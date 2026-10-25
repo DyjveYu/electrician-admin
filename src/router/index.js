@@ -102,11 +102,12 @@ const router = createRouter({
           meta: { title: '推荐达人申请审核', icon: 'Checked' }
         },
         {
-          path: '/messages',
+          path: '/home-information/notices',
           name: 'Messages',
           component: () => import('@/views/Messages.vue'),
-          meta: { title: '系统通知', icon: 'Bell' }
+          meta: { title: '信息栏通知', icon: 'Bell' }
         },
+        { path: '/messages', redirect: '/home-information/notices' },
         {
           path: '/deposits',
           name: 'Deposits',

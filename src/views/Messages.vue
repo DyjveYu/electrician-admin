@@ -1,12 +1,13 @@
 <template>
   <div class="messages-container">
     <div class="page-header">
-      <h2>系统通知管理</h2>
-      <el-button type="primary" @click="showCreateDialog = true">
+      <h2>信息栏通知</h2>
+      <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon>
         发布通知
       </el-button>
     </div>
+    <el-alert title="首页只显示全体可见、已发布且计划时间已到的通知。首页排序从小到大，留空按发布时间倒序；优先级不影响首页排序。定时通知需人工发布。" type="info" :closable="false" />
 
     <!-- 筛选条件 -->
     <div class="filter-section">
@@ -38,6 +39,7 @@
       <el-table :data="messages" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="标题" min-width="200" />
+        <el-table-column label="首页排序" width="110"><template #default="{ row }">{{ row.sort_order ?? '未配置' }}</template></el-table-column>
         <el-table-column prop="type" label="类型" width="120">
           <template #default="{ row }">
             <el-tag :type="getTypeTagType(row.type)">{{ getTypeText(row.type) }}</el-tag>
@@ -91,6 +93,10 @@
       v-model="showCreateDialog"
       :title="editingMessage ? '编辑通知' : '发布通知'"
       width="600px"
+      :close-on-click-modal="!saving"
+      :close-on-press-escape="!saving"
+      :show-close="!saving"
+      @closed="resetForm"
     >
       <el-form :model="messageForm" :rules="messageRules" ref="messageFormRef" label-width="100px">
         <el-form-item label="标题" prop="title">
@@ -103,6 +109,10 @@
             :rows="4"
             placeholder="请输入通知内容"
           />
+        </el-form-item>
+        <el-form-item label="首页排序" prop="sort_order">
+          <el-input-number v-model="messageForm.sort_order" :min="0" :max="2147483647" :precision="0" :disabled="saving" />
+          <el-button link :disabled="saving" @click="messageForm.sort_order = null">清空</el-button>
         </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-select v-model="messageForm.type" placeholder="请选择类型">
@@ -140,13 +150,14 @@
             type="datetime"
             placeholder="选择发布时间"
             format="YYYY-MM-DD HH:mm:ss"
-            value-format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DDTHH:mm:ssZ"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveMessage" :loading="saving">保存</el-button>
+        <el-button :disabled="saving" @click="showCreateDialog = false">取消</el-button>
+        <el-button v-if="editingMessage" :disabled="saving" @click="saveMessage(true)">保存并立即发布</el-button>
+        <el-button type="primary" @click="saveMessage(false)" :loading="saving">保存</el-button>
       </template>
     </el-dialog>
 
@@ -168,7 +179,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getMessages, createMessage, updateMessage, deleteMessage as deleteMessageApi } from '@/api/messages'
@@ -181,6 +192,9 @@ const showViewDialog = ref(false)
 const editingMessage = ref(null)
 const viewingMessage = ref(null)
 const messageFormRef = ref()
+let active = true
+let listSequence = 0
+onUnmounted(() => { active = false; listSequence++; showCreateDialog.value = false; showViewDialog.value = false })
 
 const filters = reactive({
   type: '',
@@ -200,7 +214,8 @@ const messageForm = reactive({
   priority: 'medium',
   target_users: 'all',
   status: 'published',
-  scheduled_at: ''
+  scheduled_at: '',
+  sort_order: null
 })
 
 const messageRules = {
@@ -213,6 +228,7 @@ const messageRules = {
 }
 
 const loadMessages = async () => {
+  const sequence = ++listSequence
   try {
     loading.value = true
     const params = {
@@ -221,12 +237,13 @@ const loadMessages = async () => {
       ...filters
     }
     const response = await getMessages(params)
+    if (!active || sequence !== listSequence) return
     messages.value = response.data.messages
     pagination.total = response.data.total
   } catch (error) {
-    ElMessage.error('获取通知列表失败')
+    if (active && sequence === listSequence) ElMessage.error('获取通知列表失败')
   } finally {
-    loading.value = false
+    if (active && sequence === listSequence) loading.value = false
   }
 }
 
@@ -254,7 +271,7 @@ const viewMessage = (message) => {
 }
 
 const editMessage = (message) => {
-  editingMessage.value = message
+  editingMessage.value = { ...message }
   Object.assign(messageForm, {
     title: message.title,
     content: message.content,
@@ -262,28 +279,44 @@ const editMessage = (message) => {
     priority: message.priority,
     target_users: message.target_users,
     status: message.status,
-    scheduled_at: message.scheduled_at || ''
+    scheduled_at: message.scheduled_at || '',
+    sort_order: message.sort_order ?? null
   })
   showCreateDialog.value = true
 }
 
-const saveMessage = async () => {
+const saveMessage = async (publishNow = false) => {
+  if (!active || saving.value) return
+  saving.value = true
   try {
     await messageFormRef.value.validate()
-    saving.value = true
+    if (!active) return
+    const payload = { ...messageForm, sort_order: messageForm.sort_order ?? null }
+    if (editingMessage.value) {
+      if (payload.status === editingMessage.value.status) delete payload.status
+      if (payload.scheduled_at === (editingMessage.value.scheduled_at || '')) delete payload.scheduled_at
+    }
+    if (publishNow) payload.status = 'published'
+    if (payload.status === 'published') delete payload.scheduled_at
+    if ((payload.status || editingMessage.value?.status || messageForm.status) === 'scheduled' && !messageForm.scheduled_at) {
+      ElMessage.error('定时通知需要计划时间')
+      return
+    }
     
     if (editingMessage.value) {
-      await updateMessage(editingMessage.value.id, messageForm)
+      await updateMessage(editingMessage.value.id, payload)
+      if (!active) return
       ElMessage.success('通知更新成功')
     } else {
-      await createMessage(messageForm)
+      await createMessage(payload)
+      if (!active) return
       ElMessage.success('通知创建成功')
     }
     
     showCreateDialog.value = false
-    resetForm()
     loadMessages()
   } catch (error) {
+    if (!active) return
     if (error.errors) return // 表单验证错误
     ElMessage.error('保存失败')
   } finally {
@@ -298,11 +331,14 @@ const deleteMessage = async (message) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
+    if (!active) return
     
     await deleteMessageApi(message.id)
+    if (!active) return
     ElMessage.success('删除成功')
     loadMessages()
   } catch (error) {
+    if (!active) return
     if (error === 'cancel') return
     ElMessage.error('删除失败')
   }
@@ -316,11 +352,13 @@ const resetForm = () => {
     priority: 'medium',
     target_users: 'all',
     status: 'published',
-    scheduled_at: ''
+    scheduled_at: '',
+    sort_order: null
   })
   editingMessage.value = null
-  messageFormRef.value?.resetFields()
+  messageFormRef.value?.clearValidate()
 }
+const openCreate = () => { resetForm(); showCreateDialog.value = true }
 
 const getTypeText = (type) => {
   const typeMap = {
