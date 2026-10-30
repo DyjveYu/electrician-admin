@@ -53,10 +53,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="账号状态" width="90" align="center">
+        <el-table-column prop="identity_successor_id" label="转入电工ID" width="110" />
+        <el-table-column prop="status" label="账号状态" width="210" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'active' ? '正常' : row.status === 'frozen' ? '已冻结' : row.status }}
+              {{ row.status === 'active' ? '正常' : row.status === 'frozen' ? '已冻结' : row.status === 'converted_to_electrician' ? '已转电工（原身份失效）' : row.status }}
             </el-tag>
           </template>
         </el-table-column>

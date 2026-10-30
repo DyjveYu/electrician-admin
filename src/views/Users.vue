@@ -94,7 +94,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="status" label="状态" width="80">
+        <el-table-column prop="status" label="状态" width="210">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
               {{ getStatusText(row.status) }}
@@ -114,6 +114,7 @@
           </template>
         </el-table-column>
         
+        <el-table-column prop="identity_successor_id" label="转入电工ID" width="110" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             
@@ -135,7 +136,7 @@
             </el-button>
             
             <el-button
-              v-else
+              v-else-if="row.status === 'banned' || row.status === 'frozen'"
               type="success"
               size="small"
               @click="handleUnbanUser(row)"
@@ -254,6 +255,7 @@ const getStatusTagType = (status) => {
 const getStatusText = (status) => {
   const textMap = {
     'active': '正常',
+      'converted_to_electrician': '已转电工（原身份失效）',
     'banned': '冻结',
     'inactive': '未激活'
   }
