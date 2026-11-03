@@ -5,6 +5,7 @@
       <div class="table-toolbar">
         <div class="left">
           <h2>企业用户管理</h2>
+          <el-tag v-if="route.query.profileNotice" closable @close="clearNoticeFilter">{{ profileTypeText(route.query.profileNotice) }} · 未查看</el-tag>
           <el-input
             v-model="searchForm.keyword"
             placeholder="搜索企业名称或手机号"
@@ -53,6 +54,10 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="资料提示" width="115">
+          <template #default="{ row }"><el-tag v-if="row.profileChangeType" :type="row.profileNoticePending ? 'warning' : 'info'">{{ profileTypeText(row.profileChangeType) }}{{ row.profileNoticePending ? ' · 未查看' : '' }}</el-tag><span v-else>-</span></template>
+        </el-table-column>
+        <el-table-column label="资料提交时间" width="165"><template #default="{ row }">{{ formatDate(row.profileChangeTime) }}</template></el-table-column>
         <el-table-column prop="identity_successor_id" label="转入电工ID" width="110" />
         <el-table-column prop="status" label="账号状态" width="210" align="center">
           <template #default="{ row }">
@@ -66,8 +71,9 @@
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
+            <el-button type="primary" link size="small" @click="viewProfile(row)">查看资料</el-button>
             <el-button type="primary" link size="small" @click="viewOrders(row)">
               查看工单
             </el-button>
@@ -106,6 +112,24 @@
         />
       </div>
     </div>
+
+    <el-dialog v-model="profileDialogVisible" title="企业资料" width="min(720px, 92vw)" destroy-on-close @closed="closeProfile">
+      <div v-loading="profileLoading">
+        <el-alert v-if="profileError" :title="profileError" type="error" :closable="false" />
+        <el-button v-if="profileError && !profileData" @click="loadProfile">重新加载</el-button>
+        <template v-if="profileData">
+          <el-descriptions v-if="profileData.certification" :column="1" border>
+            <el-descriptions-item v-for="field in profileFields" :key="field.key" :label="field.label">{{ profileData.certification[field.key] || '未提供' }}</el-descriptions-item>
+            <el-descriptions-item label="资料标识">{{ profileTypeText(profileData.certification.profileChangeType) }}</el-descriptions-item>
+            <el-descriptions-item label="资料提交时间">{{ formatDate(profileData.certification.profileChangeTime) }}</el-descriptions-item>
+            <el-descriptions-item label="营业执照"><el-image v-if="profileData.certification.licenseImage" :src="profileImage(profileData.certification.licenseImage)" :preview-src-list="[profileImage(profileData.certification.licenseImage)]" preview-teleported fit="contain" style="width: 220px; height: 180px"><template #error><span>图片加载失败</span></template></el-image><span v-else>未提供</span></el-descriptions-item>
+          </el-descriptions>
+          <el-empty v-else description="该企业尚未提交认证资料" />
+          <el-alert v-if="profileReadError" title="资料已展示，但提醒未能标记已查看，请重试" type="warning" :closable="false" />
+          <el-button v-if="profileReadError" :loading="profileReading" @click="confirmProfileView">重新标记已查看</el-button>
+        </template>
+      </div>
+    </el-dialog>
 
     <!-- 工单查看对话框 -->
     <el-dialog
@@ -177,11 +201,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh } from '@element-plus/icons-vue';
 import request from '@/utils/request';
 
+const route = useRoute();
+const router = useRouter();
+const profileTypeText = type => ({ new_certification: '新认证', information_changed: '信息变更' }[type] || '-');
+const clearNoticeFilter = () => { const query = { ...route.query }; delete query.profileNotice; router.replace({ query }); };
+let listGeneration = 0;
+let pageActive = true;
 // 搜索表单
 const searchForm = reactive({
   keyword: ''
@@ -199,23 +230,25 @@ const total = ref(0);
 
 // 获取列表
 const fetchList = async () => {
+  const generation = ++listGeneration;
   loading.value = true;
   try {
     const res = await request.get('/admin/enterprises', {
       params: {
         page: pagination.page,
         pageSize: pagination.pageSize,
-        keyword: searchForm.keyword
+        keyword: searchForm.keyword,
+        profileNotice: route.query.profileNotice || undefined
       }
     });
-    if (res.code === 200) {
+    if (pageActive && generation === listGeneration && res.code === 200) {
       tableData.value = res.data.list || [];
       total.value = res.data.total || 0;
     }
   } catch (err) {
     console.error('获取企业列表失败:', err);
   } finally {
-    loading.value = false;
+    if (pageActive && generation === listGeneration) loading.value = false;
   }
 };
 
@@ -279,6 +312,62 @@ const handleUnfreeze = async (row) => {
     }
   }
 };
+
+// 企业详情：展示成功后确认该次看到的版本，不清除稍后产生的新提醒。
+const profileDialogVisible = ref(false), profileLoading = ref(false), profileData = ref(null);
+const profileError = ref(''), profileReadError = ref(false), profileReading = ref(false);
+let profileUserId = null, profileGeneration = 0;
+const profileFields = [
+  { key: 'companyName', label: '企业名称' }, { key: 'creditCode', label: '统一社会信用代码' },
+  { key: 'contactName', label: '联系人' }, { key: 'contactPhone', label: '手机号' },
+  { key: 'province', label: '省' }, { key: 'city', label: '市' }, { key: 'district', label: '区县' }, { key: 'address', label: '实际经营地址' }
+];
+const profileImage = value => {
+  if (!value || !value.startsWith('/uploads/')) return '';
+  const api = request.defaults?.baseURL || '/api';
+  return api.replace(/\/api\/?$/, '').replace(/\/$/, '') + value;
+};
+const confirmProfileView = async () => {
+  const cert = profileData.value?.certification;
+  if (!cert?.profileNoticePending || profileReading.value || !profileDialogVisible.value) return;
+  const generation = profileGeneration, userId = profileUserId, version = cert.profileNoticeVersion;
+  profileReading.value = true;
+  try {
+    const res = await request.post(`/admin/enterprises/${userId}/profile-notice/read`, { version });
+    if (res.code !== 200) throw new Error('标记失败');
+    window.dispatchEvent(new Event('enterprise-profile-viewed'));
+    if (pageActive) fetchList();
+    if (generation === profileGeneration && profileDialogVisible.value) {
+      profileReadError.value = false;
+      // 只更新已展示快照的查看状态；如果服务器已出现新版本，其提醒由列表和铃铛继续展示。
+      cert.profileNoticePending = false;
+    }
+  } catch (error) {
+    if (pageActive && generation === profileGeneration && profileDialogVisible.value) profileReadError.value = true;
+  } finally {
+    if (generation === profileGeneration) profileReading.value = false;
+  }
+};
+const loadProfile = async () => {
+  const generation = ++profileGeneration, userId = profileUserId;
+  profileLoading.value = true; profileData.value = null; profileError.value = ''; profileReadError.value = false; profileReading.value = false;
+  const current = () => pageActive && profileDialogVisible.value && generation === profileGeneration;
+  try {
+    const res = await request.get(`/admin/enterprises/${userId}/profile`);
+    if (!current()) return;
+    if (res.code !== 200) throw new Error(res.message || '资料加载失败');
+    profileData.value = res.data;
+    profileLoading.value = false;
+    await nextTick();
+    if (current()) await confirmProfileView();
+  } catch (error) {
+    if (current()) profileError.value = error.message || '资料加载失败';
+  } finally { if (current()) profileLoading.value = false; }
+};
+const viewProfile = row => { profileUserId = row.id; profileDialogVisible.value = true; loadProfile(); };
+const closeProfile = () => { profileGeneration++; profileData.value = null; profileReading.value = false; };
+watch(() => route.query.profileNotice, () => { pagination.page = 1; fetchList(); });
+onBeforeUnmount(() => { pageActive = false; listGeneration++; profileGeneration++; });
 
 // 工单查看
 const ordersDialogVisible = ref(false);

@@ -115,6 +115,14 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="enterpriseNew">
+                  <span>企业新认证</span>
+                  <el-badge :value="todoCounts.enterpriseNewCertifications" :hidden="!todoCounts.enterpriseNewCertifications" class="item-badge" />
+                </el-dropdown-item>
+                <el-dropdown-item command="enterpriseChange">
+                  <span>企业信息变更</span>
+                  <el-badge :value="todoCounts.enterpriseInfoChanges" :hidden="!todoCounts.enterpriseInfoChanges" class="item-badge" />
+                </el-dropdown-item>
                 <el-dropdown-item command="depositRefund">
                   <span>押金退款申请</span>
                   <el-badge :value="todoCounts.depositRefunds" :hidden="!todoCounts.depositRefunds" class="item-badge" />
@@ -229,20 +237,27 @@ const isCollapse = ref(false)
 
 // 待办数量
 const todoCounts = reactive({
+  enterpriseNewCertifications: 0,
+  enterpriseInfoChanges: 0,
   depositRefunds: 0,
   certifications: 0,
   unfreezeApplications: 0,
   get total() {
-    return this.depositRefunds + this.certifications + this.unfreezeApplications
+    return this.depositRefunds + this.certifications + this.unfreezeApplications + this.enterpriseNewCertifications + this.enterpriseInfoChanges
   }
 })
 
 let todoTimer = null
+let todoGeneration = 0
+let todoActive = true
 
 const loadTodoCounts = async () => {
+  const generation = ++todoGeneration
   try {
     const res = await getTodoCounts()
-    if (res.code === 200) {
+    if (todoActive && generation === todoGeneration && res.code === 200) {
+      todoCounts.enterpriseNewCertifications = res.data.enterpriseNewCertifications || 0
+      todoCounts.enterpriseInfoChanges = res.data.enterpriseInfoChanges || 0
       todoCounts.depositRefunds = res.data.depositRefunds || 0
       todoCounts.certifications = res.data.certifications || 0
       todoCounts.unfreezeApplications = res.data.unfreezeApplications || 0
@@ -254,6 +269,8 @@ const loadTodoCounts = async () => {
 
 const handleTodoCommand = (command) => {
   const routes = {
+    enterpriseNew: '/enterprises?profileNotice=new_certification',
+    enterpriseChange: '/enterprises?profileNotice=information_changed',
     depositRefund: '/deposits',
     certification: '/electricians',
     unfreeze: '/electricians?filter=unfreeze'
@@ -262,11 +279,15 @@ const handleTodoCommand = (command) => {
 }
 
 onMounted(() => {
+  window.addEventListener('enterprise-profile-viewed', loadTodoCounts)
   loadTodoCounts()
   todoTimer = setInterval(loadTodoCounts, 30000)
 })
 
 onUnmounted(() => {
+  todoActive = false
+  todoGeneration++
+  window.removeEventListener('enterprise-profile-viewed', loadTodoCounts)
   if (todoTimer) {
     clearInterval(todoTimer)
   }
