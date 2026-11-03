@@ -83,6 +83,8 @@
               link
               size="small"
               @click="handleFreeze(row)"
+              :loading="!!statusPending[row.id]"
+              :disabled="!!statusPending[row.id]"
             >
               冻结
             </el-button>
@@ -92,6 +94,8 @@
               link
               size="small"
               @click="handleUnfreeze(row)"
+              :loading="!!statusPending[row.id]"
+              :disabled="!!statusPending[row.id]"
             >
               解冻
             </el-button>
@@ -244,9 +248,12 @@ const fetchList = async () => {
     if (pageActive && generation === listGeneration && res.code === 200) {
       tableData.value = res.data.list || [];
       total.value = res.data.total || 0;
+      return true;
     }
+    return false;
   } catch (err) {
     console.error('获取企业列表失败:', err);
+    return false;
   } finally {
     if (pageActive && generation === listGeneration) loading.value = false;
   }
@@ -275,43 +282,32 @@ const handlePageSizeChange = (size) => {
 };
 
 // 冻结/解冻
-const handleFreeze = async (row) => {
+const statusPending = reactive({});
+const changeEnterpriseStatus = async (row, action) => {
+  if (statusPending[row.id]) return;
+  statusPending[row.id] = true;
+  const freezing = action === 'freeze';
+  const label = freezing ? '冻结' : '解冻';
   try {
     await ElMessageBox.confirm(
-      `确认冻结企业「${row.companyName || row.contactPhone}」？冻结后该企业无法登录和下单。`,
-      '确认冻结',
-      { confirmButtonText: '确认冻结', cancelButtonText: '取消', type: 'warning' }
+      `确认${label}企业「${row.companyName || row.contactPhone}」？${freezing ? '冻结后该企业无法登录、查看或修改资料、下单及操作已有订单，存量订单不会自动取消或退款。' : '解冻后企业需重新登录，按原有资格使用功能。'}`,
+      `确认${label}`,
+      { confirmButtonText: `确认${label}`, cancelButtonText: '取消', type: freezing ? 'warning' : 'info' }
     );
-    const res = await request.patch(`/admin/enterprises/${row.id}/freeze`, { action: 'freeze' });
-    if (res.code === 200) {
-      ElMessage.success('已冻结');
-      fetchList();
-    }
+    const res = await request.patch(`/admin/enterprises/${row.id}/freeze`, { action });
+    if (res.code !== 200 || res.data?.status !== (freezing ? 'frozen' : 'active')) throw new Error(res.message || '状态更新结果未确认，请重新查询');
+    ElMessage.success(`已${label}`);
+    if (!await fetchList()) ElMessage.error('操作已成功，列表刷新失败，请点击刷新重试');
   } catch (err) {
-    if (err !== 'cancel') {
-      console.error('冻结失败:', err);
+    if (err !== 'cancel' && err !== 'close') {
+      ElMessage.error(err.message || `${label}失败，请重新查询后重试`);
     }
+  } finally {
+    delete statusPending[row.id];
   }
 };
-
-const handleUnfreeze = async (row) => {
-  try {
-    await ElMessageBox.confirm(
-      `确认解冻企业「${row.companyName || row.contactPhone}」？`,
-      '确认解冻',
-      { confirmButtonText: '确认解冻', cancelButtonText: '取消', type: 'info' }
-    );
-    const res = await request.patch(`/admin/enterprises/${row.id}/freeze`, { action: 'unfreeze' });
-    if (res.code === 200) {
-      ElMessage.success('已解冻');
-      fetchList();
-    }
-  } catch (err) {
-    if (err !== 'cancel') {
-      console.error('解冻失败:', err);
-    }
-  }
-};
+const handleFreeze = row => changeEnterpriseStatus(row, 'freeze');
+const handleUnfreeze = row => changeEnterpriseStatus(row, 'unfreeze');
 
 // 企业详情：展示成功后确认该次看到的版本，不清除稍后产生的新提醒。
 const profileDialogVisible = ref(false), profileLoading = ref(false), profileData = ref(null);
