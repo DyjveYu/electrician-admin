@@ -66,14 +66,18 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="黑名单" width="110" align="center">
+          <template #default="{ row }"><el-tag :type="row.enterpriseBlacklisted ? 'danger' : 'info'" size="small">{{ row.enterpriseBlacklisted ? '已加入黑名单' : '未加入' }}</el-tag></template>
+        </el-table-column>
         <el-table-column prop="createdAt" label="注册时间" width="160">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="340" fixed="right">
+        <el-table-column label="操作" width="440" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="viewProfile(row)">查看资料</el-button>
+            <el-button v-if="!row.identity_retired_at && row.status !== 'converted_to_electrician' || row.enterpriseBlacklisted" :type="row.enterpriseBlacklisted ? 'success' : 'danger'" link size="small" :loading="!!blacklistPending[row.id]" :disabled="!!blacklistPending[row.id]" @click="handleBlacklist(row)">{{ row.enterpriseBlacklisted ? '移出黑名单' : '加入黑名单' }}</el-button>
             <el-button v-if="row.certStatus !== 'not_submitted' && ['active', 'frozen'].includes(row.status)" type="warning" link size="small" :loading="!!returnPending[row.id]" :disabled="!!returnPending[row.id]" @click="handleReturn(row)">{{ row.certStatus === 'returned' ? '更正打回原因' : '打回资料' }}</el-button>
             <el-button type="primary" link size="small" @click="viewOrders(row)">
               查看工单
@@ -123,6 +127,7 @@
         <el-alert v-if="profileError" :title="profileError" type="error" :closable="false" />
         <el-button v-if="profileError && !profileData" @click="loadProfile">重新加载</el-button>
         <template v-if="profileData">
+          <el-alert :title="profileData.enterpriseBlacklisted ? '已加入黑名单' : '未加入黑名单'" :type="profileData.enterpriseBlacklisted ? 'error' : 'info'" :closable="false" />
           <el-descriptions v-if="profileData.certification" :column="1" border>
             <el-descriptions-item label="认证状态">{{ certStatusText(profileData.certification.certStatus) }}</el-descriptions-item>
             <el-descriptions-item v-if="profileData.certification.certStatus === 'returned'" label="打回原因">{{ profileData.certification.returnReason }}</el-descriptions-item>
@@ -312,6 +317,26 @@ const changeEnterpriseStatus = async (row, action) => {
 };
 const handleFreeze = row => changeEnterpriseStatus(row, 'freeze');
 const handleUnfreeze = row => changeEnterpriseStatus(row, 'unfreeze');
+
+const blacklistPending = reactive({});
+const handleBlacklist = async row => {
+  if (blacklistPending[row.id]) return;
+  blacklistPending[row.id] = true;
+  const blacklisted = !row.enterpriseBlacklisted, label = blacklisted ? '加入黑名单' : '移出黑名单';
+  try {
+    await ElMessageBox.confirm(`确认将企业「${row.companyName || row.contactPhone || row.id}」${label}？${blacklisted ? '该企业将无法登录及操作已有订单，订单不会自动取消或退款。' : '原有冻结及认证状态继续保留，企业需重新登录，按其余资格使用。'}`, label,
+      { confirmButtonText: `确认${label}`, cancelButtonText: '取消', type: blacklisted ? 'warning' : 'info' });
+    if (!pageActive) return;
+    const res = await request.patch(`/admin/enterprises/${row.id}/blacklist`, { blacklisted });
+    if (res.code !== 200 || res.data?.enterpriseBlacklisted !== blacklisted) throw new Error(res.message || '黑名单结果未确认，请重新查询');
+    if (!pageActive) return;
+    ElMessage.success(`已${label}`);
+    if (profileDialogVisible.value && profileUserId === row.id) await loadProfile();
+    if (!await fetchList()) ElMessage.error('操作已成功，列表刷新失败，请点击刷新重试');
+  } catch (error) {
+    if (pageActive && error !== 'cancel' && error !== 'close') ElMessage.error(error.message || `${label}失败，请重新查询后重试`);
+  } finally { delete blacklistPending[row.id]; }
+};
 
 const returnPending = reactive({});
 const handleReturn = async row => {
