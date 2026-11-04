@@ -71,9 +71,10 @@
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="340" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="viewProfile(row)">查看资料</el-button>
+            <el-button v-if="row.certStatus !== 'not_submitted' && ['active', 'frozen'].includes(row.status)" type="warning" link size="small" :loading="!!returnPending[row.id]" :disabled="!!returnPending[row.id]" @click="handleReturn(row)">{{ row.certStatus === 'returned' ? '更正打回原因' : '打回资料' }}</el-button>
             <el-button type="primary" link size="small" @click="viewOrders(row)">
               查看工单
             </el-button>
@@ -123,12 +124,15 @@
         <el-button v-if="profileError && !profileData" @click="loadProfile">重新加载</el-button>
         <template v-if="profileData">
           <el-descriptions v-if="profileData.certification" :column="1" border>
+            <el-descriptions-item label="认证状态">{{ certStatusText(profileData.certification.certStatus) }}</el-descriptions-item>
+            <el-descriptions-item v-if="profileData.certification.certStatus === 'returned'" label="打回原因">{{ profileData.certification.returnReason }}</el-descriptions-item>
             <el-descriptions-item v-for="field in profileFields" :key="field.key" :label="field.label">{{ profileData.certification[field.key] || '未提供' }}</el-descriptions-item>
             <el-descriptions-item label="资料标识">{{ profileTypeText(profileData.certification.profileChangeType) }}</el-descriptions-item>
             <el-descriptions-item label="资料提交时间">{{ formatDate(profileData.certification.profileChangeTime) }}</el-descriptions-item>
             <el-descriptions-item label="营业执照"><el-image v-if="profileData.certification.licenseImage" :src="profileImage(profileData.certification.licenseImage)" :preview-src-list="[profileImage(profileData.certification.licenseImage)]" preview-teleported fit="contain" style="width: 220px; height: 180px"><template #error><span>图片加载失败</span></template></el-image><span v-else>未提供</span></el-descriptions-item>
           </el-descriptions>
-          <el-empty v-else description="该企业尚未提交认证资料" />
+          <el-button v-if="profileData.certification && ['active', 'frozen'].includes(profileData.status)" type="warning" :loading="!!returnPending[profileData.id]" :disabled="!!returnPending[profileData.id]" @click="handleReturn({ id: profileData.id, companyName: profileData.certification.companyName, ...profileData.certification })">{{ profileData.certification.certStatus === 'returned' ? '更正打回原因' : '打回资料' }}</el-button>
+          <el-empty v-if="!profileData.certification" description="该企业尚未提交认证资料" />
           <el-alert v-if="profileReadError" title="资料已展示，但提醒未能标记已查看，请重试" type="warning" :closable="false" />
           <el-button v-if="profileReadError" :loading="profileReading" @click="confirmProfileView">重新标记已查看</el-button>
         </template>
@@ -309,6 +313,28 @@ const changeEnterpriseStatus = async (row, action) => {
 const handleFreeze = row => changeEnterpriseStatus(row, 'freeze');
 const handleUnfreeze = row => changeEnterpriseStatus(row, 'unfreeze');
 
+const returnPending = reactive({});
+const handleReturn = async row => {
+  if (returnPending[row.id]) return;
+  returnPending[row.id] = true;
+  try {
+    const { value } = await ElMessageBox.prompt(
+      `请填写企业「${row.companyName || row.id}」的打回原因。企业可继续处理存量订单，重新提交通过前不可新下单。`, '打回企业资料',
+      { inputType: 'textarea', inputValue: row.returnReason || '', inputPlaceholder: '请输入1至500字的原因',
+        inputValidator: value => typeof value === 'string' && !!value.trim() && [...value.trim()].length <= 500 || '请填写1至500字的打回原因',
+        confirmButtonText: '确认打回并通知', cancelButtonText: '取消', closeOnClickModal: false });
+    if (!pageActive) return;
+    const res = await request.post(`/admin/enterprises/${row.id}/profile/return`, { reason: value.trim() });
+    if (res.code !== 200 || res.data?.certStatus !== 'returned' || res.data?.returnReason !== value.trim()) throw new Error(res.message || '打回结果未确认，请重新查询');
+    if (!pageActive) return;
+    ElMessage.success('资料已打回');
+    if (profileDialogVisible.value && profileUserId === row.id) await loadProfile();
+    if (!await fetchList()) ElMessage.error('打回已成功，列表刷新失败，请点击刷新重试');
+  } catch (error) {
+    if (pageActive && error !== 'cancel' && error !== 'close') ElMessage.error(error.message || '打回失败，请重新查询后重试');
+  } finally { delete returnPending[row.id]; }
+};
+
 // 企业详情：展示成功后确认该次看到的版本，不清除稍后产生的新提醒。
 const profileDialogVisible = ref(false), profileLoading = ref(false), profileData = ref(null);
 const profileError = ref(''), profileReadError = ref(false), profileReading = ref(false);
@@ -410,12 +436,12 @@ const handleOrdersPageSizeChange = (size) => {
 
 // 认证状态文本
 const certStatusText = (status) => {
-  const map = { approved: '已认证', pending: '认证中', not_submitted: '未认证' };
+  const map = { approved: '已认证', returned: '已打回', pending: '认证中', not_submitted: '未认证' };
   return map[status] || status || '未认证';
 };
 
 const certStatusType = (status) => {
-  const map = { approved: 'success', pending: 'warning', not_submitted: 'info' };
+  const map = { approved: 'success', returned: 'danger', pending: 'warning', not_submitted: 'info' };
   return map[status] || 'info';
 };
 
