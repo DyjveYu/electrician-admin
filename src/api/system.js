@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 获取时段费率列表
 export const getTimePeriodFees = () => {
   return request({
-    url: '/system/time-period-fees',
+    url: '/system/time-period-fees/config',
     method: 'get'
   })
 }

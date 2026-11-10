@@ -7,6 +7,10 @@
           <h2>时段计费配置</h2>
         </div>
         <div class="right">
+          <el-select v-model="selectedGroup" aria-label="筛选费率档位" style="width: 165px">
+            <el-option label="全部档位" value="" />
+            <el-option v-for="group in groups" :key="group.key" :label="group.label" :value="group.key" />
+          </el-select>
           <el-button type="primary" @click="loadData" :loading="loading">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -20,86 +24,92 @@
         :closable="false"
         style="margin-bottom: 20px;"
       >
-        时段上门费根据用户下单时间自动计算。白天时段 08:00-17:00 上门费 20 元，晚间时段 17:00-22:00 上门费 50 元，夜间时段 22:00-次日 05:00 上门费 80 元。
+        快修使用通用费率。电工认证按接单地市展示对应档位的上门费。修改金额后，下次查询使用新配置。
       </el-alert>
 
-      <!-- 时段费率表格 -->
-      <el-table
-        v-loading="loading"
-        :data="feeList"
-        style="width: 100%"
-      >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="period_name" label="时段名称" width="150">
-          <template #default="{ row }">
-            <el-tag :type="getPeriodTagType(row.period_key)">
-              {{ row.period_name }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="time_range" label="时间段" width="180">
-          <template #default="{ row }">
-            {{ row.time_range }}
-          </template>
-        </el-table-column>
-        <el-table-column label="上门费（元）" width="180">
-          <template #default="{ row }">
-            <div v-if="!row.editing">
-              <span class="amount-display">¥{{ row.amount }}</span>
-              <el-button
-                type="primary"
-                link
-                size="small"
-                @click="startEdit(row)"
-                style="margin-left: 10px;"
-              >
-                编辑
-              </el-button>
-            </div>
-            <div v-else>
-              <el-input-number
-                v-model="row.editAmount"
-                :precision="2"
-                :min="0"
-                :max="9999"
-                size="small"
-                style="width: 120px;"
-              />
-              <el-button
-                type="success"
-                size="small"
-                @click="saveEdit(row)"
-                :loading="row.saving"
-                style="margin-left: 5px;"
-              >
-                保存
-              </el-button>
-              <el-button
-                size="small"
-                @click="cancelEdit(row)"
-              >
-                取消
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updated_at" label="最后更新时间" width="180">
-          <template #default="{ row }">
-            {{ row.updated_at ? formatDate(row.updated_at) : '-' }}
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-loading="loading">
+        <section v-for="group in visibleGroups" :key="group.key" class="fee-group">
+          <h3>{{ group.label }}</h3>
+          <p v-if="group.key === 'legacy'">适用于单日快修</p>
+          <p v-else-if="group.key === 'other'">适用于其余已开通地市</p>
+          <p v-else>适用城市 {{ group.cities.map(city => city.name).join('、') || '暂无' }}</p>
+          <el-table :data="group.fees" row-key="id" style="width: 100%">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="period_name" label="时段名称" width="150">
+              <template #default="{ row }">
+                <el-tag :type="getPeriodTagType(row.period_key)">
+                  {{ row.period_name }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="time_range" label="时间段" width="180">
+              <template #default="{ row }">
+                {{ row.time_range }}
+              </template>
+            </el-table-column>
+            <el-table-column label="上门费（元）" width="180">
+              <template #default="{ row }">
+                <div v-if="!row.editing">
+                  <span class="amount-display">¥{{ row.amount }}</span>
+                  <el-button
+                    type="primary"
+                    link
+                    size="small"
+                    @click="startEdit(row)"
+                    style="margin-left: 10px;"
+                  >
+                    编辑
+                  </el-button>
+                </div>
+                <div v-else>
+                  <el-input-number
+                    v-model="row.editAmount"
+                    :precision="2"
+                    :min="0"
+                    :max="9999"
+                    size="small"
+                    style="width: 120px;"
+                  />
+                  <el-button
+                    type="success"
+                    size="small"
+                    @click="saveEdit(row)"
+                    :loading="row.saving"
+                    style="margin-left: 5px;"
+                  >
+                    保存
+                  </el-button>
+                  <el-button
+                    size="small"
+                    @click="cancelEdit(row)"
+                  >
+                    取消
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="updated_at" label="最后更新时间" width="180">
+              <template #default="{ row }">
+                {{ row.updated_at ? formatDate(row.updated_at) : '-' }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </section>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { getTimePeriodFees, updateTimePeriodFee } from '@/api/system'
 
 const loading = ref(false)
-const feeList = ref([])
+const groups = ref([])
+const selectedGroup = ref('')
+const visibleGroups = computed(() => selectedGroup.value
+  ? groups.value.filter(group => group.key === selectedGroup.value) : groups.value)
 
 const getPeriodTagType = (periodKey) => {
   const types = {
@@ -127,11 +137,14 @@ const loadData = async () => {
   try {
     const res = await getTimePeriodFees()
     if (res.code === 200) {
-      feeList.value = (res.data.fees || []).map(fee => ({
-        ...fee,
-        editing: false,
-        editAmount: fee.amount,
-        saving: false
+      groups.value = (res.data.groups || []).map(group => ({
+        ...group,
+        fees: group.fees.map(fee => ({
+          ...fee,
+          editing: false,
+          editAmount: Number(fee.amount),
+          saving: false
+        }))
       }))
     } else {
       ElMessage.error(res.message || '加载失败')
@@ -145,18 +158,22 @@ const loadData = async () => {
 }
 
 const startEdit = (row) => {
-  row.editAmount = row.amount
+  row.editAmount = Number(row.amount)
   row.editing = true
 }
 
 const cancelEdit = (row) => {
   row.editing = false
-  row.editAmount = row.amount
+  row.editAmount = Number(row.amount)
 }
 
 const saveEdit = async (row) => {
-  if (row.editAmount === row.amount) {
+  if (row.editAmount === Number(row.amount)) {
     row.editing = false
+    return
+  }
+  if (!Number.isFinite(row.editAmount)) {
+    ElMessage.warning('请填写有效的上门费')
     return
   }
 
@@ -164,7 +181,8 @@ const saveEdit = async (row) => {
   try {
     const res = await updateTimePeriodFee(row.id, { amount: row.editAmount })
     if (res.code === 200) {
-      row.amount = row.editAmount
+      row.amount = res.data.fee.amount
+      row.updated_at = res.data.fee.updated_at
       row.editing = false
       ElMessage.success('更新成功')
     } else {
@@ -224,8 +242,12 @@ onMounted(() => {
   color: #409eff;
 }
 
-.transaction-id {
-  font-family: monospace;
-  font-size: 12px;
+.fee-group + .fee-group {
+  margin-top: 24px;
+}
+
+.fee-group p {
+  color: #606266;
+  font-size: 14px;
 }
 </style>
