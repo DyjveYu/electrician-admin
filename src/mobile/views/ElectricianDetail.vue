@@ -10,6 +10,7 @@
       <div class="content">
         <!-- 基本信息卡片 -->
         <van-cell-group title="基本信息" inset>
+          <van-cell title="工号" :value="detail.work_no || '-'" />
           <van-cell title="真实姓名" :value="detail.real_name || '-'" />
           <van-cell title="服务电话" :value="detail.service_phone || '-'" />
           <van-cell title="登录手机号" :value="detail.login_phone || '-'" />
@@ -24,9 +25,13 @@
           <van-cell title="服务城市" :value="detail.city || '-'" />
           <van-cell title="服务区县" :value="detail.district || '-'" />
         </van-cell-group>
+        <van-cell-group title="工费信息" inset>
+          <van-cell title="小时工费" :value="detail.hourly_rate == null ? '未填写' : detail.hourly_rate + ' 元/小时'" />
+          <van-cell title="日工工费" :value="detail.daily_rate == null ? '未填写' : detail.daily_rate + ' 元/日'" />
+        </van-cell-group>
 
-        <!-- 审核信息 -->
-        <van-cell-group title="审核信息" inset>
+        <!-- 认证结果 -->
+        <van-cell-group title="认证结果" inset>
           <van-cell title="认证状态">
             <template #value>
               <van-tag :type="statusTagType(detail.status)">
@@ -35,8 +40,8 @@
             </template>
           </van-cell>
           <van-cell title="申请日期" :value="formatDate(detail.created_at)" />
-          <van-cell title="审核日期" :value="detail.updated_at ? formatDate(detail.updated_at) : '未审核'" />
-          <van-cell v-if="detail.reject_reason" title="审核备注" :value="detail.reject_reason" />
+          <van-cell title="资料更新时间" :value="detail.updated_at ? formatDate(detail.updated_at) : '未记录'" />
+          <van-cell v-if="detail.reject_reason" title="未通过原因" :value="detail.reject_reason" />
         </van-cell-group>
 
         <!-- 证件照片 -->
@@ -64,17 +69,7 @@
         </div>
       </div>
 
-      <!-- 底部操作栏 -->
-      <div v-if="detail.status === 'pending'" class="bottom-actions">
-        <van-button type="success" block round @click="handleApprove">
-          通过认证
-        </van-button>
-        <van-button type="danger" block round @click="showRejectDialog = true">
-          驳回认证
-        </van-button>
-      </div>
-
-      <div v-else class="bottom-actions">
+      <div v-if="detail.status === 'approved' || detail.user_status === 'banned'" class="bottom-actions">
         <van-button
           v-if="detail.status === 'approved' && detail.user_status !== 'banned'"
           type="warning"
@@ -96,24 +91,6 @@
       </div>
     </template>
 
-    <!-- 驳回原因弹窗 -->
-    <van-dialog
-      v-model:show="showRejectDialog"
-      title="驳回认证"
-      show-cancel-button
-      @confirm="confirmReject"
-      :before-close="onRejectDialogClose"
-    >
-      <van-field
-        v-model="rejectReason"
-        type="textarea"
-        rows="4"
-        placeholder="请输入驳回原因"
-        maxlength="200"
-        show-word-limit
-      />
-    </van-dialog>
-
     <!-- 图片预览 -->
     <van-image-preview v-model:show="showPreview" :images="previewImages" :start-position="previewIndex" />
   </div>
@@ -122,16 +99,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showConfirmDialog, showToast, showDialog } from 'vant'
-import { getElectricianDetail, approveElectrician, rejectElectrician, banElectrician, unbanElectrician } from '../api/electricians'
+import { showConfirmDialog, showToast } from 'vant'
+import { getElectricianDetail, banElectrician, unbanElectrician } from '../api/electricians'
 
 const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
 const detail = ref(null)
-const showRejectDialog = ref(false)
-const rejectReason = ref('')
 
 // 图片预览
 const showPreview = ref(false)
@@ -143,7 +118,7 @@ function statusTagType(status) {
 }
 
 function statusText(status) {
-  return { pending: '待审核', approved: '已通过', rejected: '已驳回' }[status] || '未知'
+  return { pending: '待补充资料', approved: '已通过', rejected: '未通过' }[status] || '未知'
 }
 
 function formatDate(dateStr) {
@@ -183,50 +158,6 @@ async function loadDetail() {
     showToast('网络错误')
   } finally {
     loading.value = false
-  }
-}
-
-async function handleApprove() {
-  try {
-    await showConfirmDialog({
-      title: '确认通过',
-      message: `确定要通过 ${detail.value.real_name} 的电工认证吗？`
-    })
-    const res = await approveElectrician(detail.value.id, detail.value.business_revision)
-    if (res.code === 200) {
-      showToast('审核通过')
-      detail.value.status = 'approved'
-    }
-  } catch {
-    // user cancelled
-  }
-}
-
-function onRejectDialogClose(action) {
-  if (action === 'confirm') {
-    if (!rejectReason.value.trim()) {
-      showToast('请输入驳回原因')
-      return false
-    }
-  }
-  return true
-}
-
-async function confirmReject() {
-  if (!rejectReason.value.trim()) {
-    showToast('请输入驳回原因')
-    return
-  }
-  try {
-    const res = await rejectElectrician(detail.value.id, rejectReason.value.trim(), detail.value.business_revision)
-    if (res.code === 200) {
-      showToast('已驳回')
-      detail.value.status = 'rejected'
-      detail.value.reject_reason = rejectReason.value
-      showRejectDialog.value = false
-    }
-  } catch {
-    showToast('驳回失败')
   }
 }
 

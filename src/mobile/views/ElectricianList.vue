@@ -13,9 +13,9 @@
     <!-- 状态筛选标签 -->
     <van-tabs v-model:active="activeTab" @change="onTabChange" sticky>
       <van-tab title="全部" name="" />
-      <van-tab title="待审核" name="pending" />
+      <van-tab title="待补充资料" name="pending" />
       <van-tab title="已通过" name="approved" />
-      <van-tab title="已驳回" name="rejected" />
+      <van-tab title="未通过" name="rejected" />
     </van-tabs>
 
     <!-- 列表 -->
@@ -122,7 +122,7 @@ function statusTagType(status) {
 }
 
 function statusText(status) {
-  return { pending: '待审核', approved: '已通过', rejected: '已驳回' }[status] || '未知'
+  return { pending: '待补充资料', approved: '已通过', rejected: '未通过' }[status] || '未知'
 }
 
 function formatDate(dateStr) {

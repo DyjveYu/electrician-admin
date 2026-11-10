@@ -24,9 +24,9 @@
             clearable
             @change="handleSearch"
           >
-            <el-option label="待审核" value="pending" />
+            <el-option label="待补充资料" value="pending" />
             <el-option label="已通过" value="approved" />
-            <el-option label="已驳回" value="rejected" />
+            <el-option label="未通过" value="rejected" />
           </el-select>
 
           <el-select
@@ -70,17 +70,6 @@
           </el-button>
         </div>
         
-        <div class="right">
-          <el-button type="success" @click="handleBatchApprove" :disabled="selectedElectricians.length === 0">
-            <el-icon><Check /></el-icon>
-            批量通过
-          </el-button>
-          
-          <el-button type="danger" @click="handleBatchReject" :disabled="selectedElectricians.length === 0">
-            <el-icon><Close /></el-icon>
-            批量驳回
-          </el-button>
-        </div>
       </div>
       
       <!-- 电工列表表格 -->
@@ -88,10 +77,7 @@
         v-loading="loading"
         :data="electricianList"
         style="width: 100%"
-        @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
-
         <el-table-column prop="id" label="ID" width="80" />
 
         
@@ -129,7 +115,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="updated_at" label="审核日期" width="120">
+        <el-table-column prop="updated_at" label="资料更新时间" width="120">
           <template #default="{ row }">
             {{ row.updated_at ? formatDate(row.updated_at) : '-' }}
           </template>
@@ -137,24 +123,6 @@
         <el-table-column prop="login_phone" label="登录手机号" width="130" />
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
-            <el-button
-              v-if="row.status === 'pending'"
-              type="success"
-              size="small"
-              @click="handleApprove(row)"
-            >
-              通过
-            </el-button>
-            
-            <el-button
-              v-if="row.status === 'pending'"
-              type="danger"
-              size="small"
-              @click="handleReject(row)"
-            >
-              驳回
-            </el-button>
-            
             <el-button
               type="primary"
               size="small"
@@ -212,6 +180,8 @@
           <el-descriptions-item label="真实姓名">{{ currentElectrician.real_name }}</el-descriptions-item>
           <el-descriptions-item label="身份证号">{{ currentElectrician.id_card }}</el-descriptions-item>
           <el-descriptions-item label="工号">{{ currentElectrician.work_no || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="小时工费">{{ currentElectrician.hourly_rate == null ? '未填写' : currentElectrician.hourly_rate + ' 元/小时' }}</el-descriptions-item>
+          <el-descriptions-item label="日工工费">{{ currentElectrician.daily_rate == null ? '未填写' : currentElectrician.daily_rate + ' 元/日' }}</el-descriptions-item>
           <el-descriptions-item label="开始从业">{{ currentElectrician.career_started_month || '未填写' }}</el-descriptions-item>
           <el-descriptions-item label="从业年限">{{ currentElectrician.career_years == null ? '未填写' : currentElectrician.career_years + ' 年' }}</el-descriptions-item>
           <el-descriptions-item label="服务省份">{{ currentElectrician.province || '-' }}</el-descriptions-item>
@@ -223,9 +193,9 @@
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="申请日期">{{ formatDate(currentElectrician.created_at) }}</el-descriptions-item>
-          <el-descriptions-item label="审核日期">{{ currentElectrician.updated_at ? formatDate(currentElectrician.updated_at) : '未审核' }}</el-descriptions-item>
+          <el-descriptions-item label="资料更新时间">{{ currentElectrician.updated_at ? formatDate(currentElectrician.updated_at) : '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="登录手机号">{{ currentElectrician.login_phone }}</el-descriptions-item>
-          <el-descriptions-item label="审核备注" :span="2">
+          <el-descriptions-item label="未通过原因" :span="2">
             {{ currentElectrician.reject_reason || '无' }}
           </el-descriptions-item>
         </el-descriptions>
@@ -273,63 +243,22 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="detailDialogVisible = false">关闭</el-button>
-          <el-button
-            v-if="currentElectrician?.status === 'pending'"
-            type="success"
-            @click="handleApprove(currentElectrician)"
-          >
-            通过认证
-          </el-button>
-          <el-button
-            v-if="currentElectrician?.status === 'pending'"
-            type="danger"
-            @click="handleReject(currentElectrician)"
-          >
-            驳回认证
-          </el-button>
         </div>
       </template>
     </el-dialog>
     
-    <!-- 驳回原因对话框 -->
-    <el-dialog
-      v-model="rejectDialogVisible"
-      title="驳回认证"
-      width="500px"
-    >
-      <el-form :model="rejectForm" label-width="80px">
-        <el-form-item label="驳回原因" required>
-          <el-input
-            v-model="rejectForm.reason"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入驳回原因"
-            maxlength="200"
-            show-word-limit
-          />
-        </el-form-item>
-      </el-form>
-      
-      <template #footer>
-        <el-button @click="rejectDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="confirmReject">确认驳回</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getElectricianList, approveElectrician, rejectElectrician, getElectricianDetail, banElectrician, unbanElectrician } from '@/api/electricians'
+import { getElectricianList, getElectricianDetail, banElectrician, unbanElectrician } from '@/api/electricians'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
 const electricianList = ref([])
-const selectedElectricians = ref([])
 const detailDialogVisible = ref(false)
-const rejectDialogVisible = ref(false)
 const currentElectrician = ref(null)
-const pendingRejectElectrician = ref(null)
 
 const searchForm = reactive({
   keyword: '',
@@ -350,10 +279,6 @@ const pagination = reactive({
   total: 0
 })
 
-const rejectForm = reactive({
-  reason: ''
-})
-
 const getStatusTagType = (status) => {
   const typeMap = {
     'pending': 'warning',
@@ -365,9 +290,9 @@ const getStatusTagType = (status) => {
 
 const getStatusText = (status) => {
   const textMap = {
-    'pending': '待审核',
+    'pending': '待补充资料',
     'approved': '已通过',
-    'rejected': '已驳回'
+    'rejected': '未通过'
   }
   return textMap[status] || '未知'
 }
@@ -466,65 +391,6 @@ const handleCurrentChange = (page) => {
   loadElectricianList()
 }
 
-const handleSelectionChange = (selection) => {
-  selectedElectricians.value = selection
-}
-
-const handleApprove = async (electrician) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要通过 ${electrician.real_name} 的电工认证吗？`,
-      '确认通过',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'success'
-      }
-    )
-    
-    const response = await approveElectrician(electrician.id, { business_revision: electrician.business_revision })
-    if (response.code === 200) {
-      ElMessage.success('认证审核通过')
-      loadElectricianList()
-      detailDialogVisible.value = false
-    }
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('审核通过失败:', error)
-      ElMessage.error('审核通过失败')
-    }
-  }
-}
-
-const handleReject = (electrician) => {
-  pendingRejectElectrician.value = electrician
-  rejectForm.reason = ''
-  rejectDialogVisible.value = true
-}
-
-const confirmReject = async () => {
-  if (!rejectForm.reason.trim()) {
-    ElMessage.warning('请输入驳回原因')
-    return
-  }
-  
-  try {
-    const response = await rejectElectrician(pendingRejectElectrician.value.id, {
-      reason: rejectForm.reason,
-      business_revision: pendingRejectElectrician.value.business_revision
-    })
-    if (response.code === 200) {
-      ElMessage.success('认证已驳回')
-      loadElectricianList()
-      rejectDialogVisible.value = false
-      detailDialogVisible.value = false
-    }
-  } catch (error) {
-    console.error('驳回认证失败:', error)
-    ElMessage.error('驳回认证失败')
-  }
-}
-
 const handleViewDetail = async (electrician) => {
   try {
     const response = await getElectricianDetail(electrician.id)
@@ -592,44 +458,6 @@ const handleUnbanElectrician = async (electrician) => {
       ElMessage.error('解冻电工失败')
     }
   }
-}
-
-const handleBatchApprove = async () => {
-  const pendingElectricians = selectedElectricians.value.filter(e => e.status === 'pending')
-  if (pendingElectricians.length === 0) {
-    ElMessage.warning('请选择待审核的电工')
-    return
-  }
-  
-  try {
-    await ElMessageBox.confirm(
-      `确定要批量通过 ${pendingElectricians.length} 个电工的认证吗？`,
-      '确认批量通过',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'success'
-      }
-    )
-    
-    // 这里应该调用批量审核API，暂时模拟
-    ElMessage.success('批量审核通过成功')
-    loadElectricianList()
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('批量审核失败')
-    }
-  }
-}
-
-const handleBatchReject = () => {
-  const pendingElectricians = selectedElectricians.value.filter(e => e.status === 'pending')
-  if (pendingElectricians.length === 0) {
-    ElMessage.warning('请选择待审核的电工')
-    return
-  }
-  
-  ElMessage.info('批量驳回功能开发中...')
 }
 
 onMounted(() => {

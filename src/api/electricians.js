@@ -9,31 +9,6 @@ export const getElectricianList = (params) => {
   })
 }
 
-// 审核电工认证
-export const approveElectrician = (id, data) => {
-  return request({
-    url: `/admin/electricians/${id}/review`,
-    method: 'put',
-    data: {
-      status: 'approved',
-      ...data
-    }
-  })
-}
-
-// 驳回电工认证
-export const rejectElectrician = (id, data) => {
-  return request({
-    url: `/admin/electricians/${id}/review`,
-    method: 'put',
-    data: {
-      status: 'rejected',
-      reason: data.reason || '',
-      business_revision: data.business_revision
-    }
-  })
-}
-
 // 获取电工详情
 export const getElectricianDetail = (id) => {
   return request({
