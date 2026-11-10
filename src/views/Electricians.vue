@@ -102,6 +102,13 @@
 
         <el-table-column prop="work_no" label="工号" width="120" />
 
+        <el-table-column label="开始从业" width="110">
+          <template #default="{ row }">{{ row.career_started_month || '未填写' }}</template>
+        </el-table-column>
+        <el-table-column label="从业年限" width="100">
+          <template #default="{ row }">{{ row.career_years == null ? '未填写' : row.career_years + ' 年' }}</template>
+        </el-table-column>
+
         <el-table-column prop="status" label="认证状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
@@ -204,14 +211,9 @@
           <el-descriptions-item label="服务联系电话">{{ currentElectrician.service_phone }}</el-descriptions-item>
           <el-descriptions-item label="真实姓名">{{ currentElectrician.real_name }}</el-descriptions-item>
           <el-descriptions-item label="身份证号">{{ currentElectrician.id_card }}</el-descriptions-item>
-          <el-descriptions-item label="电工证编号">{{ currentElectrician.electrician_license }}</el-descriptions-item>
           <el-descriptions-item label="工号">{{ currentElectrician.work_no || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="证书开始日期">{{ formatDate(currentElectrician.cert_start_date) }}</el-descriptions-item>
-          <el-descriptions-item label="证书结束日期">
-            <span :class="{ 'text-danger': isExpiringSoon(currentElectrician.cert_end_date) }">
-              {{ formatDate(currentElectrician.cert_end_date) }}
-            </span>
-          </el-descriptions-item>
+          <el-descriptions-item label="开始从业">{{ currentElectrician.career_started_month || '未填写' }}</el-descriptions-item>
+          <el-descriptions-item label="从业年限">{{ currentElectrician.career_years == null ? '未填写' : currentElectrician.career_years + ' 年' }}</el-descriptions-item>
           <el-descriptions-item label="服务省份">{{ currentElectrician.province || '-' }}</el-descriptions-item>
           <el-descriptions-item label="服务城市">{{ currentElectrician.city || '-' }}</el-descriptions-item>
           <el-descriptions-item label="服务区县">{{ currentElectrician.district || '-' }}</el-descriptions-item>
@@ -229,7 +231,7 @@
         </el-descriptions>
         
         <!-- 证件照片 -->
-        <div v-if="currentElectrician.id_card_front || currentElectrician.id_card_back || currentElectrician.license_photo" class="photos-section">
+        <div v-if="currentElectrician.id_card_front || currentElectrician.id_card_back || currentElectrician.licenses?.length" class="photos-section">
           <h4>证件照片</h4>
           <div class="photos-grid">
             <div v-if="currentElectrician.id_card_front" class="photo-item">
@@ -252,11 +254,14 @@
               />
             </div>
             
-            <div v-if="currentElectrician.license_photo" class="photo-item">
-              <p>电工证照片</p>
+            <div v-for="license in currentElectrician.licenses" :key="license.license_type" class="photo-item">
+              <p>{{ license.label }}</p>
+              <p>证号 {{ license.certificate_number || '未记录' }}</p>
+              <p>{{ license.start_date || '未记录' }} 至 {{ license.end_date || '未记录' }}</p>
               <el-image
-                :src="currentElectrician.license_photo"
-                :preview-src-list="[currentElectrician.license_photo]"
+                v-if="license.photo_url"
+                :src="license.photo_url"
+                :preview-src-list="[license.photo_url]"
                 fit="cover"
                 class="photo"
               />
@@ -377,15 +382,6 @@ const maskIdCard = (idCard) => {
   return idCard.replace(/(\d{6})\d{8}(\d{4})/, '$1********$2')
 }
 
-const isExpiringSoon = (expiryDate) => {
-  if (!expiryDate) return false
-  const expiry = new Date(expiryDate)
-  const now = new Date()
-  const diffTime = expiry - now
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  return diffDays <= 30 && diffDays >= 0
-}
-
 const loadElectricianList = async () => {
   loading.value = true
   try {
@@ -486,7 +482,7 @@ const handleApprove = async (electrician) => {
       }
     )
     
-    const response = await approveElectrician(electrician.id, {})
+    const response = await approveElectrician(electrician.id, { business_revision: electrician.business_revision })
     if (response.code === 200) {
       ElMessage.success('认证审核通过')
       loadElectricianList()
@@ -514,7 +510,8 @@ const confirmReject = async () => {
   
   try {
     const response = await rejectElectrician(pendingRejectElectrician.value.id, {
-      reason: rejectForm.reason
+      reason: rejectForm.reason,
+      business_revision: pendingRejectElectrician.value.business_revision
     })
     if (response.code === 200) {
       ElMessage.success('认证已驳回')

@@ -50,6 +50,14 @@
             <span class="label">申请时间：</span>
             <span>{{ formatDate(item.created_at) }}</span>
           </div>
+          <div class="info-row">
+            <span class="label">开始从业：</span>
+            <span>{{ item.career_started_month || '未填写' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">从业年限：</span>
+            <span>{{ item.career_years == null ? '未填写' : item.career_years + ' 年' }}</span>
+          </div>
         </div>
 
         <div class="card-actions">

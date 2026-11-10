@@ -15,19 +15,19 @@ export function getElectricianDetail(id) {
   })
 }
 
-export function approveElectrician(id) {
+export function approveElectrician(id, revision) {
   return request({
     url: `/admin/electricians/${id}/review`,
     method: 'put',
-    data: { status: 'approved' }
+    data: { status: 'approved', business_revision: revision }
   })
 }
 
-export function rejectElectrician(id, reason) {
+export function rejectElectrician(id, reason, revision) {
   return request({
     url: `/admin/electricians/${id}/review`,
     method: 'put',
-    data: { status: 'rejected', reason }
+    data: { status: 'rejected', reason, business_revision: revision }
   })
 }
 

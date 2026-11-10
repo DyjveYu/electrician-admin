@@ -28,7 +28,8 @@ export const rejectElectrician = (id, data) => {
     method: 'put',
     data: {
       status: 'rejected',
-      reason: data.reason || ''
+      reason: data.reason || '',
+      business_revision: data.business_revision
     }
   })
 }

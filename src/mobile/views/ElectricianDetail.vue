@@ -14,19 +14,12 @@
           <van-cell title="服务电话" :value="detail.service_phone || '-'" />
           <van-cell title="登录手机号" :value="detail.login_phone || '-'" />
           <van-cell title="身份证号" :value="maskIdCard(detail.id_card) || '-'" />
-          <van-cell title="电工证编号" :value="detail.electrician_license || '-'" />
+          <van-cell title="开始从业" :value="detail.career_started_month || '未填写'" />
+          <van-cell title="从业年限" :value="detail.career_years == null ? '未填写' : detail.career_years + ' 年'" />
         </van-cell-group>
 
         <!-- 证书有效期 -->
-        <van-cell-group title="证书信息" inset>
-          <van-cell title="证书开始日期" :value="formatDate(detail.cert_start_date)" />
-          <van-cell title="证书结束日期">
-            <template #value>
-              <span :class="{ 'text-danger': isExpiringSoon(detail.cert_end_date) }">
-                {{ formatDate(detail.cert_end_date) }}
-              </span>
-            </template>
-          </van-cell>
+        <van-cell-group title="服务区域" inset>
           <van-cell title="服务省份" :value="detail.province || '-'" />
           <van-cell title="服务城市" :value="detail.city || '-'" />
           <van-cell title="服务区县" :value="detail.district || '-'" />
@@ -58,12 +51,14 @@
               <p class="photo-label">身份证背面</p>
               <van-image :src="detail.id_card_back" fit="cover" class="photo" />
             </div>
-            <div v-if="detail.license_photo" class="photo-item" @click="previewImage(detail.license_photo)">
-              <p class="photo-label">电工证照片</p>
-              <van-image :src="detail.license_photo" fit="cover" class="photo" />
+            <div v-for="license in detail.licenses" :key="license.license_type" class="photo-item">
+              <p class="photo-label">{{ license.label }}</p>
+              <p>证号 {{ license.certificate_number || '未记录' }}</p>
+              <p>{{ license.start_date || '未记录' }} 至 {{ license.end_date || '未记录' }}</p>
+              <van-image v-if="license.photo_url" :src="license.photo_url" fit="cover" class="photo" @click="previewImage(license.photo_url)" />
             </div>
           </div>
-          <div v-if="!detail.id_card_front && !detail.id_card_back && !detail.license_photo" class="no-photos">
+          <div v-if="!detail.id_card_front && !detail.id_card_back && !detail.licenses?.length" class="no-photos">
             暂无证件照片
           </div>
         </div>
@@ -162,15 +157,6 @@ function maskIdCard(idCard) {
   return idCard.replace(/(\d{6})\d{8}(\d{4})/, '$1********$2')
 }
 
-function isExpiringSoon(expiryDate) {
-  if (!expiryDate) return false
-  const expiry = new Date(expiryDate)
-  const now = new Date()
-  const diffTime = expiry - now
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  return diffDays <= 30 && diffDays >= 0
-}
-
 function previewImage(url) {
   previewImages.value = [url]
   previewIndex.value = 0
@@ -206,7 +192,7 @@ async function handleApprove() {
       title: '确认通过',
       message: `确定要通过 ${detail.value.real_name} 的电工认证吗？`
     })
-    const res = await approveElectrician(detail.value.id)
+    const res = await approveElectrician(detail.value.id, detail.value.business_revision)
     if (res.code === 200) {
       showToast('审核通过')
       detail.value.status = 'approved'
@@ -232,7 +218,7 @@ async function confirmReject() {
     return
   }
   try {
-    const res = await rejectElectrician(detail.value.id, rejectReason.value.trim())
+    const res = await rejectElectrician(detail.value.id, rejectReason.value.trim(), detail.value.business_revision)
     if (res.code === 200) {
       showToast('已驳回')
       detail.value.status = 'rejected'
