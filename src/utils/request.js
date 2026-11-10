@@ -34,7 +34,9 @@ request.interceptors.response.use(
 
     // 🚨 调试用：打印响应状态和数据
     console.log('✅ 响应状态:', response.status)
-    console.log('✅ 响应数据:', data)
+    if (!/^\/electricians\/\d+(?:\?|$)/.test(response.config.url)) {
+      console.log('✅ 响应数据:', data)
+    }
 
     // 如果是文件下载，直接返回
     if (response.config.responseType === 'blob') {
