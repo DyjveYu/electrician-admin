@@ -9,6 +9,14 @@ export const getElectricianList = (params) => {
   })
 }
 
+// 获取省级电工统计
+export const getElectricianRegionStats = () => {
+  return request({
+    url: '/admin/electricians/region-stats',
+    method: 'get'
+  })
+}
+
 // 获取电工详情
 export const getElectricianDetail = (id) => {
   return request({

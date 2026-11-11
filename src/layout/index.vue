@@ -25,10 +25,14 @@
           <template #title>用户管理</template>
         </el-menu-item>
 
-        <el-menu-item index="/electricians">
-          <el-icon><Tools /></el-icon>
-          <template #title>电工管理</template>
-        </el-menu-item>
+        <el-sub-menu index="electrician-management">
+          <template #title>
+            <el-icon><Tools /></el-icon>
+            <span>电工管理</span>
+          </template>
+          <el-menu-item index="/electricians/region-stats">统计概览</el-menu-item>
+          <el-menu-item index="/electricians">电工管理</el-menu-item>
+        </el-sub-menu>
 
         <el-menu-item index="/enterprises">
           <el-icon><OfficeBuilding /></el-icon>
@@ -335,6 +339,7 @@ const currentPageTitle = computed(() => {
     '/admins': '管理员中心',
     '/users': '用户管理',
     '/electricians': '电工管理',
+    '/electricians/region-stats': '统计概览',
     '/partners': '合作伙伴管理',
     '/referrers': '推荐达人管理',
     '/referrer-applications': '推荐达人申请审核',
@@ -461,16 +466,16 @@ const handleChangePassword = async () => {
   color: #fff;
 }
 
-.sidebar-menu :deep(.home-information-menu > .el-sub-menu__title) {
+.sidebar-menu :deep(.el-sub-menu__title) {
   color: rgba(255, 255, 255, 0.65);
 }
 
-.sidebar-menu :deep(.home-information-menu > .el-sub-menu__title:hover) {
+.sidebar-menu :deep(.el-sub-menu__title:hover) {
   background-color: #1890ff;
   color: #fff;
 }
 
-.sidebar-menu :deep(.home-information-menu .el-menu) {
+.sidebar-menu :deep(.el-sub-menu .el-menu) {
   background-color: #001529;
 }
 
