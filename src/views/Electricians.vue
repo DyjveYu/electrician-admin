@@ -182,6 +182,7 @@
           <el-descriptions-item label="工号">{{ currentElectrician.work_no || '-' }}</el-descriptions-item>
           <el-descriptions-item label="小时工费">{{ currentElectrician.hourly_rate == null ? '未填写' : currentElectrician.hourly_rate + ' 元/小时' }}</el-descriptions-item>
           <el-descriptions-item label="日工工费">{{ currentElectrician.daily_rate == null ? '未填写' : currentElectrician.daily_rate + ' 元/日' }}</el-descriptions-item>
+          <el-descriptions-item label="最近资料变更">{{ currentElectrician.information_changed_at ? formatDate(currentElectrician.information_changed_at) : '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="开始从业">{{ currentElectrician.career_started_month || '未填写' }}</el-descriptions-item>
           <el-descriptions-item label="从业年限">{{ currentElectrician.career_years == null ? '未填写' : currentElectrician.career_years + ' 年' }}</el-descriptions-item>
           <el-descriptions-item label="服务省份">{{ currentElectrician.province || '-' }}</el-descriptions-item>
