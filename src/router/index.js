@@ -66,6 +66,12 @@ const router = createRouter({
           meta: { title: '统计概览' }
         },
         {
+          path: '/electricians/region-changes',
+          name: 'ElectricianRegionChanges',
+          component: () => import('@/views/ElectricianRegionChanges.vue'),
+          meta: { title: '区域变更审核' }
+        },
+        {
           path: '/orders',
           name: 'Orders',
           component: () => import('@/views/Orders.vue'),

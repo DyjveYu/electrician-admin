@@ -34,8 +34,8 @@
         <van-cell-group title="认证结果" inset>
           <van-cell title="认证状态">
             <template #value>
-              <van-tag :type="statusTagType(detail.status)">
-                {{ statusText(detail.status) }}
+              <van-tag :type="statusTagType(detail)">
+                {{ detail.status_text || statusText(detail.status) }}
               </van-tag>
             </template>
           </van-cell>
@@ -113,8 +113,9 @@ const showPreview = ref(false)
 const previewImages = ref([])
 const previewIndex = ref(0)
 
-function statusTagType(status) {
-  return { pending: 'warning', approved: 'success', rejected: 'danger' }[status] || 'default'
+function statusTagType(record) {
+  if (['待补充资料', '区域变更待审核'].includes(record.status_text)) return 'warning'
+  return { pending: 'warning', approved: 'success', rejected: 'danger' }[record.status] || 'default'
 }
 
 function statusText(status) {

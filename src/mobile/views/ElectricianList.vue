@@ -14,6 +14,7 @@
     <van-tabs v-model:active="activeTab" @change="onTabChange" sticky>
       <van-tab title="全部" name="" />
       <van-tab title="待补充资料" name="pending" />
+      <van-tab title="区域变更待审核" name="region_change_pending" />
       <van-tab title="已通过" name="approved" />
       <van-tab title="未通过" name="rejected" />
     </van-tabs>
@@ -30,8 +31,8 @@
         <div class="card-header">
           <div class="card-header-left">
             <span class="name">{{ item.real_name || '未填写' }}</span>
-            <van-tag :type="statusTagType(item.status)" size="medium">
-              {{ statusText(item.status) }}
+            <van-tag :type="statusTagType(item)" size="medium">
+              {{ item.status_text || statusText(item.status) }}
             </van-tag>
           </div>
           <van-icon name="arrow" color="#999" />
@@ -117,8 +118,9 @@ const keyword = ref('')
 const activeTab = ref('')
 const pagination = ref({ page: 1, limit: 20, total: 0 })
 
-function statusTagType(status) {
-  return { pending: 'warning', approved: 'success', rejected: 'danger' }[status] || 'default'
+function statusTagType(record) {
+  if (['待补充资料', '区域变更待审核'].includes(record.status_text)) return 'warning'
+  return { pending: 'warning', approved: 'success', rejected: 'danger' }[record.status] || 'default'
 }
 
 function statusText(status) {

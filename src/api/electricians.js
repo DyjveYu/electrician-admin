@@ -1,5 +1,10 @@
 import request from '@/utils/request'
 
+export const getRegionChanges = params => request({ url: '/admin/electrician-region-changes', method: 'get', params })
+export const getRegionChange = id => request({ url: '/admin/electrician-region-changes/' + id, method: 'get' })
+export const reviewRegionChange = (id, data) => request({ url: '/admin/electrician-region-changes/' + id + '/review', method: 'put', data })
+export const retryRegionNotification = (id, data) => request({ url: '/admin/electrician-region-changes/' + id + '/notification/retry', method: 'post', data })
+
 // 获取电工列表
 export const getElectricianList = (params) => {
   return request({

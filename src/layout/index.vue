@@ -32,6 +32,7 @@
           </template>
           <el-menu-item index="/electricians/region-stats">统计概览</el-menu-item>
           <el-menu-item index="/electricians">电工管理</el-menu-item>
+          <el-menu-item index="/electricians/region-changes">区域变更审核</el-menu-item>
         </el-sub-menu>
 
         <el-menu-item index="/enterprises">
@@ -340,6 +341,7 @@ const currentPageTitle = computed(() => {
     '/users': '用户管理',
     '/electricians': '电工管理',
     '/electricians/region-stats': '统计概览',
+    '/electricians/region-changes': '区域变更审核',
     '/partners': '合作伙伴管理',
     '/referrers': '推荐达人管理',
     '/referrer-applications': '推荐达人申请审核',

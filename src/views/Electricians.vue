@@ -20,11 +20,12 @@
           <el-select
             v-model="searchForm.status"
             placeholder="认证状态"
-            style="width: 120px"
+            style="width: 170px"
             clearable
             @change="handleSearch"
           >
             <el-option label="待补充资料" value="pending" />
+            <el-option label="区域变更待审核" value="region_change_pending" />
             <el-option label="已通过" value="approved" />
             <el-option label="未通过" value="rejected" />
           </el-select>
@@ -95,10 +96,10 @@
           <template #default="{ row }">{{ row.career_years == null ? '未填写' : row.career_years + ' 年' }}</template>
         </el-table-column>
 
-        <el-table-column prop="status" label="认证状态" width="100">
+        <el-table-column prop="status" label="认证状态" width="160">
           <template #default="{ row }">
-            <el-tag :type="getStatusTagType(row.status)">
-              {{ getStatusText(row.status) }}
+            <el-tag :type="getStatusTagType(row)">
+              {{ getStatusText(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -189,8 +190,8 @@
           <el-descriptions-item label="服务城市">{{ currentElectrician.city || '-' }}</el-descriptions-item>
           <el-descriptions-item label="服务区县">{{ currentElectrician.district || '-' }}</el-descriptions-item>
           <el-descriptions-item label="认证状态">
-            <el-tag :type="getStatusTagType(currentElectrician.status)">
-              {{ getStatusText(currentElectrician.status) }}
+            <el-tag :type="getStatusTagType(currentElectrician)">
+              {{ getStatusText(currentElectrician) }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="申请日期">{{ formatDate(currentElectrician.created_at) }}</el-descriptions-item>
@@ -244,9 +245,11 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="detailDialogVisible = false">关闭</el-button>
+          <el-button v-if="currentElectrician?.region_change_pending_id" type="primary" @click="openRegionReview">审核区域变更</el-button>
         </div>
       </template>
     </el-dialog>
+    <RegionChangeReview v-model="regionReviewVisible" :change-id="regionReviewId" @reviewed="handleRegionReviewed" />
     
   </div>
 </template>
@@ -255,11 +258,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { getElectricianList, getElectricianDetail, banElectrician, unbanElectrician } from '@/api/electricians'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import RegionChangeReview from '@/components/RegionChangeReview.vue'
 
 const loading = ref(false)
 const electricianList = ref([])
 const detailDialogVisible = ref(false)
 const currentElectrician = ref(null)
+const regionReviewVisible = ref(false)
+const regionReviewId = ref(null)
 
 const searchForm = reactive({
   keyword: '',
@@ -280,22 +286,25 @@ const pagination = reactive({
   total: 0
 })
 
-const getStatusTagType = (status) => {
+const getStatusTagType = (record) => {
+  if (['待补充资料', '区域变更待审核'].includes(record.status_text)) return 'warning'
   const typeMap = {
     'pending': 'warning',
     'approved': 'success',
     'rejected': 'danger'
   }
-  return typeMap[status] || 'info'
+  return typeMap[record.status] || 'info'
 }
 
-const getStatusText = (status) => {
+const getStatusText = (record) => {
+  if (record.status_text) return record.status_text
+  if (record.status === 'pending' && record.region_change_pending_id) return '区域变更待审核'
   const textMap = {
     'pending': '待补充资料',
     'approved': '已通过',
     'rejected': '未通过'
   }
-  return textMap[status] || '未知'
+  return textMap[record.status] || '未知'
 }
 
 const formatDate = (dateString) => {
@@ -409,6 +418,21 @@ const handleViewDetail = async (electrician) => {
     currentElectrician.value = electrician
     detailDialogVisible.value = true
   }
+}
+
+const openRegionReview = () => {
+  regionReviewId.value = currentElectrician.value?.region_change_pending_id
+  regionReviewVisible.value = !!regionReviewId.value
+}
+
+const handleRegionReviewed = async () => {
+  loadElectricianList()
+  const id = currentElectrician.value?.id
+  if (!id || !detailDialogVisible.value) return
+  try {
+    const response = await getElectricianDetail(id)
+    if (detailDialogVisible.value && currentElectrician.value?.id === id) currentElectrician.value = response.data
+  } catch { ElMessage.error('审核已完成，电工详情刷新失败，请重新打开详情') }
 }
 
 const handleBanElectrician = async (electrician) => {
