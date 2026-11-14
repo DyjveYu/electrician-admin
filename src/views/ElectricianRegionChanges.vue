@@ -2,6 +2,11 @@
   <div class="page-card">
     <div class="region-toolbar">
       <h2>区域变更审核</h2>
+      <el-select v-model="operation" aria-label="区域申请类型" style="width: 150px" @change="filterChanged">
+        <el-option label="全部类型" value="" />
+        <el-option label="变更区域" value="change" />
+        <el-option label="新增区域" value="add" />
+      </el-select>
       <el-select v-model="status" aria-label="申请状态" style="width: 160px" @change="filterChanged">
         <el-option label="待审核" value="pending" />
         <el-option label="已通过" value="approved" />
@@ -12,6 +17,9 @@
     </div>
     <el-alert v-if="listError" :title="listError" type="error" :closable="false" />
     <el-table v-loading="loading" :data="rows" row-key="id" empty-text="暂无区域变更记录">
+      <el-table-column label="申请类型" width="110">
+        <template #default="{ row }">{{ row.operation === 'add' ? '新增区域' : '变更区域' }}</template>
+      </el-table-column>
       <el-table-column label="电工" min-width="120">
         <template #default="{ row }">{{ row.certification?.real_name || row.user_id }}</template>
       </el-table-column>
@@ -22,7 +30,7 @@
         <template #default="{ row }">{{ row.province }}{{ row.city }}{{ row.district }}</template>
       </el-table-column>
       <el-table-column label="状态" min-width="150">
-        <template #default="{ row }">{{ row.source === 'self' ? '信息自行变更' : statusLabels[row.status] }}</template>
+        <template #default="{ row }">{{ row.operation === 'add' && row.status === 'pending' ? '新增区域待审核' : (row.source === 'self' ? '信息自行变更' : statusLabels[row.status]) }}</template>
       </el-table-column>
       <el-table-column label="提交时间" min-width="170">
         <template #default="{ row }">{{ formatTime(row.submitted_at) }}</template>
@@ -34,16 +42,20 @@
     <el-pagination v-model:current-page="page" :total="total" :page-size="20"
       layout="total, prev, pager, next" @current-change="loadList" />
 
-    <RegionChangeReview v-model="detailVisible" :change-id="selectedId" @reviewed="loadList" />
+    <RegionChangeReview v-model="detailVisible" :change-id="selectedId" :api="regionReviewApi" @reviewed="loadList" />
   </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import RegionChangeReview from '@/components/RegionChangeReview.vue'
+import * as regionReviewApi from '@/api/electricians'
 import { getRegionChanges } from '@/api/electricians'
 const statusLabels = { pending: '区域变更待审核', approved: '审核通过', rejected: '审核拒绝' }
+const route = useRoute()
 const status = ref('pending')
+const operation = ref('')
 const page = ref(1)
 const rows = ref([])
 const total = ref(0)
@@ -58,7 +70,7 @@ async function loadList() {
   loading.value = true
   listError.value = ''
   try {
-    const { data } = await getRegionChanges({ status: status.value || undefined, page: page.value, limit: 20 })
+    const { data } = await getRegionChanges({ status: status.value || undefined, operation: operation.value || undefined, page: page.value, limit: 20 })
     if (request !== listRequest) return
     rows.value = data.list
     total.value = data.total
@@ -73,7 +85,12 @@ function openDetail(id) {
   selectedId.value = id
   detailVisible.value = true
 }
-onMounted(loadList)
+watch(() => [route.query.operation, route.query.status], ([type, state]) => {
+  operation.value = ['change', 'add'].includes(type) ? type : ''
+  status.value = ['pending', 'approved', 'rejected'].includes(state) ? state : 'pending'
+  page.value = 1
+  loadList()
+}, { immediate: true })
 onUnmounted(() => { listRequest += 1 })
 </script>
 

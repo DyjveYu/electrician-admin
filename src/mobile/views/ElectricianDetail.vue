@@ -37,11 +37,16 @@
               <van-tag :type="statusTagType(detail)">
                 {{ detail.status_text || statusText(detail.status) }}
               </van-tag>
+              <van-tag v-if="detail.pending_region_request?.operation === 'add'" type="warning">新增区域待审核</van-tag>
             </template>
           </van-cell>
           <van-cell title="申请日期" :value="formatDate(detail.created_at)" />
           <van-cell title="资料更新时间" :value="detail.updated_at ? formatDate(detail.updated_at) : '未记录'" />
           <van-cell v-if="detail.reject_reason" title="未通过原因" :value="detail.reject_reason" />
+        </van-cell-group>
+        <van-cell-group title="已增加接单区域" inset>
+          <van-cell v-for="area in detail.service_regions" :key="area.id" :title="area.province + area.city + area.district" />
+          <van-cell v-if="!detail.service_regions?.length" title="暂无新增区域" />
         </van-cell-group>
 
         <!-- 证件照片 -->
@@ -69,7 +74,10 @@
         </div>
       </div>
 
-      <div v-if="detail.status === 'approved' || detail.user_status === 'banned'" class="bottom-actions">
+      <div v-if="detail.region_change_pending_id || detail.status === 'approved' || detail.user_status === 'banned'" class="bottom-actions">
+        <van-button v-if="detail.region_change_pending_id" type="primary" block round @click="openReview">
+          {{ detail.pending_region_request?.operation === 'add' ? '审核新增区域' : '审核区域变更' }}
+        </van-button>
         <van-button
           v-if="detail.status === 'approved' && detail.user_status !== 'banned'"
           type="warning"
@@ -93,6 +101,7 @@
 
     <!-- 图片预览 -->
     <van-image-preview v-model:show="showPreview" :images="previewImages" :start-position="previewIndex" />
+    <RegionChangeReview v-model="reviewVisible" :change-id="reviewId" :api="regionReviewApi" @reviewed="loadDetail" />
   </div>
 </template>
 
@@ -101,12 +110,17 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { getElectricianDetail, banElectrician, unbanElectrician } from '../api/electricians'
+import RegionChangeReview from '../../components/RegionChangeReview.vue'
+import * as regionReviewApi from '../api/electricians'
 
 const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
 const detail = ref(null)
+const reviewVisible = ref(false)
+const reviewId = ref(null)
+function openReview() { reviewId.value = detail.value.region_change_pending_id; reviewVisible.value = true }
 
 // 图片预览
 const showPreview = ref(false)

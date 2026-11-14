@@ -112,7 +112,7 @@
         
         <div class="header-right">
           <!-- 待办通知 -->
-          <el-dropdown trigger="hover" @command="handleTodoCommand">
+          <el-dropdown trigger="hover" @command="handleTodoCommand" @visible-change="visible => visible && loadTodoCounts()">
             <span class="todo-trigger">
               <el-badge :value="todoCounts.total" :max="99" :hidden="todoCounts.total === 0">
                 <el-icon :size="20"><Bell /></el-icon>
@@ -135,6 +135,10 @@
                 <el-dropdown-item command="certification">
                   <span>电工认证申请</span>
                   <el-badge :value="todoCounts.certifications" :hidden="!todoCounts.certifications" class="item-badge" />
+                </el-dropdown-item>
+                <el-dropdown-item command="regionAddition">
+                  <span>新增区域申请</span>
+                  <el-badge :value="todoCounts.regionAdditions" :hidden="!todoCounts.regionAdditions" class="item-badge" />
                 </el-dropdown-item>
                 <el-dropdown-item command="unfreeze">
                   <span>解冻申请</span>
@@ -246,9 +250,10 @@ const todoCounts = reactive({
   enterpriseInfoChanges: 0,
   depositRefunds: 0,
   certifications: 0,
+  regionAdditions: 0,
   unfreezeApplications: 0,
   get total() {
-    return this.depositRefunds + this.certifications + this.unfreezeApplications + this.enterpriseNewCertifications + this.enterpriseInfoChanges
+    return this.depositRefunds + this.certifications + this.unfreezeApplications + this.enterpriseNewCertifications + this.enterpriseInfoChanges + this.regionAdditions
   }
 })
 
@@ -265,6 +270,7 @@ const loadTodoCounts = async () => {
       todoCounts.enterpriseInfoChanges = res.data.enterpriseInfoChanges || 0
       todoCounts.depositRefunds = res.data.depositRefunds || 0
       todoCounts.certifications = res.data.certifications || 0
+      todoCounts.regionAdditions = res.data.regionAdditions || 0
       todoCounts.unfreezeApplications = res.data.unfreezeApplications || 0
     }
   } catch (error) {
@@ -278,6 +284,7 @@ const handleTodoCommand = (command) => {
     enterpriseChange: '/enterprises?profileNotice=information_changed',
     depositRefund: '/deposits',
     certification: '/electricians',
+    regionAddition: '/electricians/region-changes?operation=add&status=pending',
     unfreeze: '/electricians?filter=unfreeze'
   }
   router.push(routes[command])
@@ -285,6 +292,7 @@ const handleTodoCommand = (command) => {
 
 onMounted(() => {
   window.addEventListener('enterprise-profile-viewed', loadTodoCounts)
+  window.addEventListener('electrician-region-reviewed', loadTodoCounts)
   loadTodoCounts()
   todoTimer = setInterval(loadTodoCounts, 30000)
 })
@@ -293,6 +301,7 @@ onUnmounted(() => {
   todoActive = false
   todoGeneration++
   window.removeEventListener('enterprise-profile-viewed', loadTodoCounts)
+  window.removeEventListener('electrician-region-reviewed', loadTodoCounts)
   if (todoTimer) {
     clearInterval(todoTimer)
   }

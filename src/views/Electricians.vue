@@ -26,6 +26,7 @@
           >
             <el-option label="待补充资料" value="pending" />
             <el-option label="区域变更待审核" value="region_change_pending" />
+            <el-option label="新增区域待审核" value="region_add_pending" />
             <el-option label="已通过" value="approved" />
             <el-option label="未通过" value="rejected" />
           </el-select>
@@ -101,6 +102,7 @@
             <el-tag :type="getStatusTagType(row)">
               {{ getStatusText(row) }}
             </el-tag>
+            <div v-if="row.pending_region_request?.operation === 'add'">新增区域待审核</div>
           </template>
         </el-table-column>
 
@@ -193,6 +195,11 @@
             <el-tag :type="getStatusTagType(currentElectrician)">
               {{ getStatusText(currentElectrician) }}
             </el-tag>
+            <div v-if="currentElectrician.pending_region_request?.operation === 'add'">新增区域待审核</div>
+          </el-descriptions-item>
+          <el-descriptions-item label="已增加接单区域" :span="2">
+            <div v-for="area in currentElectrician.service_regions" :key="area.id">{{ area.province }}{{ area.city }}{{ area.district }}</div>
+            <span v-if="!currentElectrician.service_regions?.length">暂无新增区域</span>
           </el-descriptions-item>
           <el-descriptions-item label="申请日期">{{ formatDate(currentElectrician.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="资料更新时间">{{ currentElectrician.updated_at ? formatDate(currentElectrician.updated_at) : '未记录' }}</el-descriptions-item>
@@ -245,11 +252,11 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="detailDialogVisible = false">关闭</el-button>
-          <el-button v-if="currentElectrician?.region_change_pending_id" type="primary" @click="openRegionReview">审核区域变更</el-button>
+          <el-button v-if="currentElectrician?.region_change_pending_id" type="primary" @click="openRegionReview">{{ currentElectrician.pending_region_request?.operation === 'add' ? '审核新增区域' : '审核区域变更' }}</el-button>
         </div>
       </template>
     </el-dialog>
-    <RegionChangeReview v-model="regionReviewVisible" :change-id="regionReviewId" @reviewed="handleRegionReviewed" />
+    <RegionChangeReview v-model="regionReviewVisible" :change-id="regionReviewId" :api="regionReviewApi" @reviewed="handleRegionReviewed" />
     
   </div>
 </template>
@@ -259,6 +266,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { getElectricianList, getElectricianDetail, banElectrician, unbanElectrician } from '@/api/electricians'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import RegionChangeReview from '@/components/RegionChangeReview.vue'
+import * as regionReviewApi from '@/api/electricians'
 
 const loading = ref(false)
 const electricianList = ref([])

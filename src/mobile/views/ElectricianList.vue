@@ -15,6 +15,7 @@
       <van-tab title="全部" name="" />
       <van-tab title="待补充资料" name="pending" />
       <van-tab title="区域变更待审核" name="region_change_pending" />
+      <van-tab title="新增区域待审核" name="region_add_pending" />
       <van-tab title="已通过" name="approved" />
       <van-tab title="未通过" name="rejected" />
     </van-tabs>
@@ -34,6 +35,7 @@
             <van-tag :type="statusTagType(item)" size="medium">
               {{ item.status_text || statusText(item.status) }}
             </van-tag>
+            <van-tag v-if="item.pending_region_request?.operation === 'add'" type="warning">新增区域待审核</van-tag>
           </div>
           <van-icon name="arrow" color="#999" />
         </div>
