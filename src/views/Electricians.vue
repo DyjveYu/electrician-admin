@@ -5,6 +5,7 @@
       <div class="table-toolbar">
         <div class="left">
           <h2>电工管理</h2>
+          <el-tag v-if="route.query.profileNotice" closable @close="clearNoticeFilter">{{ profileTypeText(route.query.profileNotice) }} · 未查看</el-tag>
           <el-input
             v-model="searchForm.keyword"
             placeholder="搜索电工姓名或手机号"
@@ -84,6 +85,15 @@
 
         
 
+        <el-table-column label="资料提交" width="165">
+          <template #default="{ row }">
+            <el-tag v-if="row.profileChangeType" :type="row.profileNoticePending ? 'warning' : 'info'">{{ profileTypeText(row.profileChangeType) }}{{ row.profileNoticePending ? ' · 未查看' : '' }}</el-tag>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="认证／资料变更时间" width="195">
+          <template #default="{ row }">{{ profileTime(row.profileChangeTime) }}</template>
+        </el-table-column>
         <el-table-column prop="service_phone" label="服务联系电话" width="130" />
 
         <el-table-column prop="real_name" label="姓名" width="100" />
@@ -175,9 +185,16 @@
       title="电工详情"
       width="800px"
     >
+      <div v-if="detailLoading">正在读取电工详情…</div>
+      <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
+      <el-button v-if="detailError" @click="profileDetail.reload">重新加载详情</el-button>
+      <el-alert v-if="profileReadError" title="提醒未消除，请重试" type="warning" :closable="false" />
+      <el-button v-if="profileReadError" :loading="profileReading" @click="profileDetail.confirmViewed">重试消除提醒</el-button>
       <div v-if="currentElectrician" class="electrician-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="电工ID">{{ currentElectrician.id }}</el-descriptions-item>
+          <el-descriptions-item label="资料提交">{{ profileTypeText(currentElectrician.profileChangeType) }}{{ currentElectrician.profileNoticePending ? ' · 未查看' : '' }}</el-descriptions-item>
+          <el-descriptions-item label="认证／资料变更时间">{{ profileTime(currentElectrician.profileChangeTime) }}</el-descriptions-item>
           
           <el-descriptions-item label="服务联系电话">{{ currentElectrician.service_phone }}</el-descriptions-item>
           <el-descriptions-item label="真实姓名">{{ currentElectrician.real_name }}</el-descriptions-item>
@@ -262,16 +279,23 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { getElectricianList, getElectricianDetail, banElectrician, unbanElectrician } from '@/api/electricians'
+import { ref, reactive, watch, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { profileTypeText, profileTime } from '@/utils/electricianProfileNotice'
+import { useElectricianProfileDetail } from '@/composables/useElectricianProfileDetail'
+import { getElectricianList, banElectrician, unbanElectrician } from '@/api/electricians'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import RegionChangeReview from '@/components/RegionChangeReview.vue'
 import * as regionReviewApi from '@/api/electricians'
 
 const loading = ref(false)
 const electricianList = ref([])
-const detailDialogVisible = ref(false)
-const currentElectrician = ref(null)
+const route = useRoute(), router = useRouter()
+const profileDetail = useElectricianProfileDetail(regionReviewApi, () => loadElectricianList())
+const { visible: detailDialogVisible, detail: currentElectrician, loading: detailLoading,
+  error: detailError, readError: profileReadError, reading: profileReading } = profileDetail
+const clearNoticeFilter = () => { const query = { ...route.query }; delete query.profileNotice; router.replace({ query }); }
+let pageActive = true, listRequest = 0
 const regionReviewVisible = ref(false)
 const regionReviewId = ref(null)
 
@@ -326,15 +350,18 @@ const maskIdCard = (idCard) => {
 }
 
 const loadElectricianList = async () => {
+  const request = ++listRequest
   loading.value = true
   try {
     const params = {
       page: pagination.page,
       limit: pagination.limit,
-      ...searchForm
+      ...searchForm,
+      profileNotice: route.query.profileNotice || undefined
     }
 
     const response = await getElectricianList(params)
+    if (!pageActive || request !== listRequest) return
     if (response.code === 200) {
       // 后端已经返回统一格式的数据
       electricianList.value = response.data.list || []
@@ -356,12 +383,13 @@ const loadElectricianList = async () => {
       pagination.total = 0
     }
   } catch (error) {
+    if (!pageActive || request !== listRequest) return
     console.error('加载电工列表失败:', error)
     ElMessage.error('网络错误，请稍后重试')
     electricianList.value = []
     pagination.total = 0
   } finally {
-    loading.value = false
+    if (pageActive && request === listRequest) loading.value = false
   }
 }
 
@@ -410,22 +438,7 @@ const handleCurrentChange = (page) => {
 }
 
 const handleViewDetail = async (electrician) => {
-  try {
-    const response = await getElectricianDetail(electrician.id)
-    if (response.code === 200) {
-      // 后端已经返回格式化的数据，直接使用
-      currentElectrician.value = response.data
-    } else {
-      ElMessage.error(response.message || '获取电工详情失败')
-      currentElectrician.value = electrician
-    }
-    detailDialogVisible.value = true
-  } catch (error) {
-    console.error('获取电工详情失败:', error)
-    ElMessage.error('网络错误，请稍后重试')
-    currentElectrician.value = electrician
-    detailDialogVisible.value = true
-  }
+  await profileDetail.load(electrician.id)
 }
 
 const openRegionReview = () => {
@@ -437,10 +450,7 @@ const handleRegionReviewed = async () => {
   loadElectricianList()
   const id = currentElectrician.value?.id
   if (!id || !detailDialogVisible.value) return
-  try {
-    const response = await getElectricianDetail(id)
-    if (detailDialogVisible.value && currentElectrician.value?.id === id) currentElectrician.value = response.data
-  } catch { ElMessage.error('审核已完成，电工详情刷新失败，请重新打开详情') }
+  await profileDetail.reload()
 }
 
 const handleBanElectrician = async (electrician) => {
@@ -493,9 +503,8 @@ const handleUnbanElectrician = async (electrician) => {
   }
 }
 
-onMounted(() => {
-  loadElectricianList()
-})
+watch(() => route.query.profileNotice, () => { pagination.page = 1; loadElectricianList() }, { immediate: true })
+onUnmounted(() => { pageActive = false; listRequest++ })
 </script>
 
 <style scoped>

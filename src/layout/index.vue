@@ -132,9 +132,17 @@
                   <span>押金退款申请</span>
                   <el-badge :value="todoCounts.depositRefunds" :hidden="!todoCounts.depositRefunds" class="item-badge" />
                 </el-dropdown-item>
-                <el-dropdown-item command="certification">
-                  <span>电工认证申请</span>
-                  <el-badge :value="todoCounts.certifications" :hidden="!todoCounts.certifications" class="item-badge" />
+                <el-dropdown-item command="electricianNew">
+                  <span>电工新认证</span>
+                  <el-badge :value="todoCounts.electricianNewCertifications" :hidden="!todoCounts.electricianNewCertifications" class="item-badge" />
+                </el-dropdown-item>
+                <el-dropdown-item command="electricianChange">
+                  <span>电工信息变更</span>
+                  <el-badge :value="todoCounts.electricianInfoChanges" :hidden="!todoCounts.electricianInfoChanges" class="item-badge" />
+                </el-dropdown-item>
+                <el-dropdown-item command="regionChange">
+                  <span>区域变更申请</span>
+                  <el-badge :value="todoCounts.regionChanges" :hidden="!todoCounts.regionChanges" class="item-badge" />
                 </el-dropdown-item>
                 <el-dropdown-item command="regionAddition">
                   <span>新增区域申请</span>
@@ -249,11 +257,13 @@ const todoCounts = reactive({
   enterpriseNewCertifications: 0,
   enterpriseInfoChanges: 0,
   depositRefunds: 0,
-  certifications: 0,
+  electricianNewCertifications: 0,
+  electricianInfoChanges: 0,
+  regionChanges: 0,
   regionAdditions: 0,
   unfreezeApplications: 0,
   get total() {
-    return this.depositRefunds + this.certifications + this.unfreezeApplications + this.enterpriseNewCertifications + this.enterpriseInfoChanges + this.regionAdditions
+    return this.depositRefunds + this.electricianNewCertifications + this.electricianInfoChanges + this.regionChanges + this.unfreezeApplications + this.enterpriseNewCertifications + this.enterpriseInfoChanges + this.regionAdditions
   }
 })
 
@@ -269,7 +279,9 @@ const loadTodoCounts = async () => {
       todoCounts.enterpriseNewCertifications = res.data.enterpriseNewCertifications || 0
       todoCounts.enterpriseInfoChanges = res.data.enterpriseInfoChanges || 0
       todoCounts.depositRefunds = res.data.depositRefunds || 0
-      todoCounts.certifications = res.data.certifications || 0
+      todoCounts.electricianNewCertifications = res.data.electricianNewCertifications || 0
+      todoCounts.electricianInfoChanges = res.data.electricianInfoChanges || 0
+      todoCounts.regionChanges = res.data.regionChanges || 0
       todoCounts.regionAdditions = res.data.regionAdditions || 0
       todoCounts.unfreezeApplications = res.data.unfreezeApplications || 0
     }
@@ -283,7 +295,9 @@ const handleTodoCommand = (command) => {
     enterpriseNew: '/enterprises?profileNotice=new_certification',
     enterpriseChange: '/enterprises?profileNotice=information_changed',
     depositRefund: '/deposits',
-    certification: '/electricians',
+    electricianNew: '/electricians?profileNotice=new_certification',
+    electricianChange: '/electricians?profileNotice=information_changed',
+    regionChange: '/electricians/region-changes?operation=change&status=pending',
     regionAddition: '/electricians/region-changes?operation=add&status=pending',
     unfreeze: '/electricians?filter=unfreeze'
   }
@@ -293,6 +307,7 @@ const handleTodoCommand = (command) => {
 onMounted(() => {
   window.addEventListener('enterprise-profile-viewed', loadTodoCounts)
   window.addEventListener('electrician-region-reviewed', loadTodoCounts)
+  window.addEventListener('electrician-profile-viewed', loadTodoCounts)
   loadTodoCounts()
   todoTimer = setInterval(loadTodoCounts, 30000)
 })
@@ -302,6 +317,7 @@ onUnmounted(() => {
   todoGeneration++
   window.removeEventListener('enterprise-profile-viewed', loadTodoCounts)
   window.removeEventListener('electrician-region-reviewed', loadTodoCounts)
+  window.removeEventListener('electrician-profile-viewed', loadTodoCounts)
   if (todoTimer) {
     clearInterval(todoTimer)
   }

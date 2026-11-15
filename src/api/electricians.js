@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+export const markElectricianProfileViewed = (id, version) => request({ url: `/admin/electricians/${id}/profile-notice/read`, method: 'post', data: { version } })
 
 export const getRegionChanges = params => request({ url: '/admin/electrician-region-changes', method: 'get', params })
 export const getRegionChange = id => request({ url: '/admin/electrician-region-changes/' + id, method: 'get' })

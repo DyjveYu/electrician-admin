@@ -1,6 +1,8 @@
 <template>
   <div class="page">
     <van-nav-bar title="电工详情" left-arrow @click-left="router.back()" />
+    <van-cell v-if="detailError" :title="detailError" is-link @click="profileDetail.reload" value="重新加载" />
+    <van-cell v-if="profileReadError" title="提醒未消除，请重试" is-link @click="profileDetail.confirmViewed" :value="profileReading ? '处理中' : '重试'" />
 
     <div v-if="loading" class="loading-state">
       <van-loading size="24px">加载中...</van-loading>
@@ -10,6 +12,8 @@
       <div class="content">
         <!-- 基本信息卡片 -->
         <van-cell-group title="基本信息" inset>
+          <van-cell title="资料提交" :value="profileTypeText(detail.profileChangeType) + (detail.profileNoticePending ? ' · 未查看' : '')" />
+          <van-cell title="认证／资料变更时间" :value="profileTime(detail.profileChangeTime)" />
           <van-cell title="工号" :value="detail.work_no || '-'" />
           <van-cell title="真实姓名" :value="detail.real_name || '-'" />
           <van-cell title="服务电话" :value="detail.service_phone || '-'" />
@@ -106,18 +110,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
-import { getElectricianDetail, banElectrician, unbanElectrician } from '../api/electricians'
+import { banElectrician, unbanElectrician } from '../api/electricians'
 import RegionChangeReview from '../../components/RegionChangeReview.vue'
 import * as regionReviewApi from '../api/electricians'
+import { profileTypeText, profileTime } from '../../utils/electricianProfileNotice'
+import { useElectricianProfileDetail } from '../../composables/useElectricianProfileDetail'
 
 const route = useRoute()
 const router = useRouter()
 
-const loading = ref(true)
-const detail = ref(null)
+const profileDetail = useElectricianProfileDetail(regionReviewApi)
+const { loading, detail, error: detailError, readError: profileReadError, reading: profileReading } = profileDetail
 const reviewVisible = ref(false)
 const reviewId = ref(null)
 function openReview() { reviewId.value = detail.value.region_change_pending_id; reviewVisible.value = true }
@@ -154,26 +160,8 @@ function previewImage(url) {
 }
 
 async function loadDetail() {
-  loading.value = true
-  try {
-    const id = route.query.id
-    if (!id) {
-      showToast('缺少电工ID')
-      router.back()
-      return
-    }
-
-    const res = await getElectricianDetail(id)
-    if (res.code === 200) {
-      detail.value = res.data
-    } else {
-      showToast(res.message || '获取详情失败')
-    }
-  } catch {
-    showToast('网络错误')
-  } finally {
-    loading.value = false
-  }
+  if (!route.query.id) { showToast('缺少电工ID'); router.back(); return }
+  await profileDetail.load(route.query.id)
 }
 
 async function handleBan() {
@@ -208,9 +196,7 @@ async function handleUnban() {
   }
 }
 
-onMounted(() => {
-  loadDetail()
-})
+watch(() => route.query.id, loadDetail, { immediate: true })
 </script>
 
 <style scoped>

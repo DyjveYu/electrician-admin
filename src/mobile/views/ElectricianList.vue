@@ -32,6 +32,7 @@
         <div class="card-header">
           <div class="card-header-left">
             <span class="name">{{ item.real_name || '未填写' }}</span>
+            <van-tag v-if="item.profileChangeType" :type="item.profileNoticePending ? 'warning' : 'default'">{{ profileTypeText(item.profileChangeType) }}{{ item.profileNoticePending ? ' · 未查看' : '' }}</van-tag>
             <van-tag :type="statusTagType(item)" size="medium">
               {{ item.status_text || statusText(item.status) }}
             </van-tag>
@@ -41,6 +42,7 @@
         </div>
 
         <div class="card-body">
+          <div class="info-row"><span class="label">认证／变更：</span><span>{{ profileTime(item.profileChangeTime) }}</span></div>
           <div class="info-row">
             <span class="label">服务电话：</span>
             <span>{{ item.service_phone || '-' }}</span>
@@ -106,7 +108,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { profileTypeText, profileTime } from '../../utils/electricianProfileNotice'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { getElectricianList, banElectrician, unbanElectrician } from '../api/electricians'
@@ -119,6 +122,7 @@ const finished = ref(false)
 const keyword = ref('')
 const activeTab = ref('')
 const pagination = ref({ page: 1, limit: 20, total: 0 })
+let pageActive = true, listRequest = 0
 
 function statusTagType(record) {
   if (['待补充资料', '区域变更待审核'].includes(record.status_text)) return 'warning'
@@ -136,6 +140,7 @@ function formatDate(dateStr) {
 }
 
 async function fetchList() {
+  const request = ++listRequest, page = pagination.value.page
   loading.value = true
   try {
     const params = {
@@ -146,18 +151,19 @@ async function fetchList() {
     }
 
     const res = await getElectricianList(params)
+    if (!pageActive || request !== listRequest) return
     if (res.code === 200) {
       const newList = res.data.list || []
-      list.value = pagination.value.page === 1 ? newList : [...list.value, ...newList]
+      list.value = page === 1 ? newList : [...list.value, ...newList]
       pagination.value.total = res.data.total || 0
       finished.value = list.value.length >= pagination.value.total
     } else {
       showToast(res.message || '加载失败')
     }
   } catch {
-    showToast('网络错误')
+    if (pageActive && request === listRequest) showToast('网络错误')
   } finally {
-    loading.value = false
+    if (pageActive && request === listRequest) loading.value = false
   }
 }
 
@@ -215,6 +221,7 @@ async function handleUnban(item) {
 onMounted(() => {
   fetchList()
 })
+onUnmounted(() => { pageActive = false; listRequest++ })
 </script>
 
 <style scoped>
