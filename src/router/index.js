@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useTestToolsStore } from '@/stores/testTools'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -40,6 +41,12 @@ const router = createRouter({
           name: 'Dashboard',
           component: () => import('@/views/Dashboard.vue'),
           meta: { title: '仪表盘', icon: 'DataBoard' }
+        },
+        {
+          path: '/admins/wechat-id',
+          name: 'WechatIdEditor',
+          component: () => import('@/views/WechatIdEditor.vue'),
+          meta: { title: '微信ID修改', requiresTestTools: true }
         },
         {
           path: '/admins',
@@ -143,11 +150,14 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {
     next('/login')
+  } else if (to.meta.requiresTestTools) {
+    const enabled = await useTestToolsStore().refresh()
+    next(!authStore.isLoggedIn ? '/login' : enabled ? undefined : '/admins')
   } else if (to.path === '/login' && authStore.isLoggedIn) {
     next('/')
   } else {

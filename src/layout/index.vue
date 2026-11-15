@@ -84,10 +84,11 @@
           <template #title>时段计费配置</template>
         </el-menu-item>
 
-        <el-menu-item index="/admins">
-          <el-icon><UserFilled /></el-icon>
-          <template #title>管理员中心</template>
-        </el-menu-item>
+        <el-sub-menu index="administrator-center">
+          <template #title><el-icon><UserFilled /></el-icon><span>管理员中心</span></template>
+          <el-menu-item index="/admins">管理员列表</el-menu-item>
+          <el-menu-item v-if="testTools.wechatIdEditEnabled" index="/admins/wechat-id">微信ID修改</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     
@@ -243,12 +244,14 @@
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useTestToolsStore } from '@/stores/testTools'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { getTodoCounts } from '@/api/todo'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const testTools = useTestToolsStore()
 
 const isCollapse = ref(false)
 
@@ -305,6 +308,7 @@ const handleTodoCommand = (command) => {
 }
 
 onMounted(() => {
+  testTools.refresh()
   window.addEventListener('enterprise-profile-viewed', loadTodoCounts)
   window.addEventListener('electrician-region-reviewed', loadTodoCounts)
   window.addEventListener('electrician-profile-viewed', loadTodoCounts)
@@ -363,6 +367,7 @@ const currentPageTitle = computed(() => {
     '/home-information/ads': '广告维护',
     '/dashboard': '仪表盘',
     '/admins': '管理员中心',
+    '/admins/wechat-id': '微信ID修改',
     '/users': '用户管理',
     '/electricians': '电工管理',
     '/electricians/region-stats': '统计概览',

@@ -1,10 +1,12 @@
 <template>
   <div class="users-page">
-    <div class="page-card">
+    <div v-if="pageAllowed" class="page-card">
+      <el-alert v-if="testOpenidMode" title="仅在测试环境可使用，严禁在生产环境使用" type="warning" :closable="false" show-icon class="test-warning" />
+      <el-alert v-if="listError" :title="listError" type="error" :closable="false" />
       <!-- 页面标题和操作栏 -->
       <div class="table-toolbar">
         <div class="left">
-          <h2>用户管理</h2>
+          <h2>{{ testOpenidMode ? '微信ID修改' : '用户管理' }}</h2>
           <el-input
             v-model="searchForm.search"
             placeholder="搜索用户手机号或昵称"
@@ -26,6 +28,7 @@
           >
             <el-option label="正常" value="active" />
             <el-option label="冻结" value="banned" />
+            <el-option v-if="testOpenidMode" label="已转电工" value="converted_to_electrician" />
           </el-select>
           
           <el-select
@@ -51,7 +54,7 @@
           </el-button>
         </div>
         
-        <div class="right">
+        <div v-if="!testOpenidMode" class="right">
           <el-button type="primary" @click="handleExport">
             <el-icon><Download /></el-icon>
             导出数据
@@ -66,7 +69,7 @@
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
+        <el-table-column v-if="!testOpenidMode" type="selection" width="55" />
         
         <el-table-column prop="id" label="ID" width="80" />
         
@@ -127,7 +130,7 @@
               详情
             </el-button>
             <el-button
-              v-if="row.status === 'active'"
+              v-if="!testOpenidMode && row.status === 'active'"
               type="danger"
               size="small"
               @click="handleBanUser(row)"
@@ -136,13 +139,14 @@
             </el-button>
             
             <el-button
-              v-else-if="row.status === 'banned' || row.status === 'frozen'"
+              v-else-if="!testOpenidMode && (row.status === 'banned' || row.status === 'frozen')"
               type="success"
               size="small"
               @click="handleUnbanUser(row)"
             >
               解封
             </el-button>
+            <el-button v-if="testOpenidMode && testTools.wechatIdEditEnabled" type="warning" size="small" @click="openEditor(row)">修改</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -163,6 +167,7 @@
     
     <!-- 用户详情对话框 -->
     <el-dialog
+      v-if="pageAllowed"
       v-model="detailDialogVisible"
       title="用户详情"
       width="600px"
@@ -199,14 +204,45 @@
         <el-button @click="detailDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+    <el-dialog v-if="testOpenidMode && pageAllowed" v-model="editVisible" title="修改微信ID" width="620px"
+      :close-on-click-modal="!editSaving" :close-on-press-escape="!editSaving" :show-close="!editSaving">
+      <div v-loading="editLoading">
+        <el-alert title="仅在测试环境可使用，严禁在生产环境使用" type="warning" :closable="false" />
+        <template v-if="editTarget">
+          <p>用户 ID：{{ editTarget.id }}　手机号：{{ editTarget.phone || '未填写' }}　昵称：{{ editTarget.nickname || '未填写' }}</p>
+          <p>当前 OpenID：<span class="openid-text">{{ editTarget.openid ?? '未绑定' }}</span></p>
+          <el-form label-position="top"><el-form-item label="新的微信ID（OpenID）">
+            <el-input v-model="editValue" type="textarea" :rows="3" :disabled="editSaving || editSaved" placeholder="输入要保存的值；留空将保存为未绑定" />
+          </el-form-item></el-form>
+          <p>留空保存为未绑定。只修改当前用户记录。</p>
+        </template>
+        <el-alert v-if="editError" :title="editError" type="error" :closable="false" />
+        <el-alert v-if="editSaved && editRefreshError" title="已保存，列表刷新失败，请重试刷新" type="warning" :closable="false" />
+      </div>
+      <template #footer>
+        <el-button :disabled="editSaving" @click="editVisible = false">关闭</el-button>
+        <el-button v-if="editError && !editSaved" :disabled="editSaving || editLoading" @click="editor.reload">重新加载当前用户</el-button>
+        <el-button v-if="editSaved && editRefreshError" :disabled="editSaving" @click="editor.refresh">重试刷新</el-button>
+        <el-button v-if="!editSaved" type="primary" :loading="editSaving" :disabled="!editTarget || editLoading" @click="editor.save">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useTestToolsStore } from '@/stores/testTools'
+import { useTestOpenidEditor } from '@/composables/useTestOpenidEditor'
+import { updateTestOpenid } from '@/api/testTools'
 import { getUserList, banUser, unbanUser, getUserDetail } from '@/api/users'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+const props = defineProps({ testOpenidMode: Boolean })
+const router = useRouter(), testTools = useTestToolsStore()
+const pageAllowed = computed(() => !props.testOpenidMode || testTools.wechatIdEditEnabled)
+const listError = ref('')
+let pageActive = true, listGeneration = 0, detailGeneration = 0
 const loading = ref(false)
 const userList = ref([])
 const selectedUsers = ref([])
@@ -268,49 +304,40 @@ const formatDate = (dateString) => {
 }
 
 const loadUserList = async () => {
-  loading.value = true
+  if (!pageActive || !pageAllowed.value) return false
+  const request = ++listGeneration
+  loading.value = true; listError.value = ''
   try {
-    const params = {
-      page: pagination.page,
-      limit: pagination.limit,
-      ...searchForm
+    const response = await getUserList({ page: pagination.page, limit: pagination.limit, ...searchForm })
+    if (!pageActive || request !== listGeneration || !pageAllowed.value) return false
+    if (response.code !== 200) throw new Error('读取失败')
+    userList.value = response.data.users || response.data.list || []
+    pagination.total = response.data.total
+    return true
+  } catch {
+    if (pageActive && request === listGeneration) {
+      userList.value = []; pagination.total = 0; listError.value = '加载用户列表失败，请重试搜索'
     }
-    
-    const response = await getUserList(params)
-    if (response.code === 200) {
-      userList.value = response.data.users || response.data.list || []
-      pagination.total = response.data.total
-    }
-  } catch (error) {
-    console.error('加载用户列表失败:', error)
-    // 使用模拟数据
-    userList.value = [
-      {
-        id: 1,
-        phone: '13800138000',
-        nickname: '测试用户1',
-        current_role: 'user',
-        can_be_electrician: false,
-        status: 'active',
-        created_at: '2024-01-01T00:00:00Z',
-        last_login_at: '2024-01-15T10:30:00Z'
-      },
-      {
-        id: 2,
-        phone: '13900139000',
-        nickname: '张师傅',
-        current_role: 'electrician',
-        can_be_electrician: true,
-        status: 'active',
-        created_at: '2024-01-02T00:00:00Z',
-        last_login_at: '2024-01-15T09:15:00Z'
-      }
-    ]
-    pagination.total = 2
-  } finally {
-    loading.value = false
-  }
+    return false
+  } finally { if (pageActive && request === listGeneration) loading.value = false }
 }
+const editor = useTestOpenidEditor({ getUserDetail, updateTestOpenid },
+  () => props.testOpenidMode && testTools.wechatIdEditEnabled, async user => {
+    detailGeneration++
+    if (currentUser.value?.id === user.id) currentUser.value = { ...currentUser.value, openid: user.openid }
+    return loadUserList()
+  })
+const { visible: editVisible, target: editTarget, value: editValue, error: editError,
+  loading: editLoading, saving: editSaving, saved: editSaved, refreshError: editRefreshError } = editor
+const openEditor = async user => {
+  const enabled = await testTools.refresh()
+  if (pageActive && enabled) await editor.load(user.id)
+}
+watch(pageAllowed, allowed => {
+  if (!allowed) { editVisible.value = false; detailDialogVisible.value = false; router.replace('/admins') }
+})
+watch(detailDialogVisible, state => { if (!state) detailGeneration++ }, { flush: 'sync' })
+onUnmounted(() => { pageActive = false; listGeneration++; detailGeneration++ })
 
 const handleSearch = () => {
   pagination.page = 1
@@ -391,19 +418,15 @@ const handleUnbanUser = async (user) => {
   }
 }
 
-const handleViewDetail = async (user) => {
+const handleViewDetail = async user => {
+  const request = ++detailGeneration
   try {
     const response = await getUserDetail(user.id)
-    if (response.code === 200) {
-      currentUser.value = response.data
-    } else {
-      currentUser.value = user
-    }
-    detailDialogVisible.value = true
-  } catch (error) {
-    console.error('获取用户详情失败:', error)
-    currentUser.value = user
-    detailDialogVisible.value = true
+    if (!pageActive || request !== detailGeneration || !pageAllowed.value) return
+    if (response.code !== 200 || Number(response.data?.id) !== Number(user.id)) throw new Error('读取失败')
+    currentUser.value = response.data; detailDialogVisible.value = true
+  } catch {
+    if (pageActive && request === detailGeneration) ElMessage.error('获取用户详情失败，请重试')
   }
 }
 
@@ -417,6 +440,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.test-warning { margin-bottom: 20px; }
+.openid-text { overflow-wrap: anywhere; }
 .users-page {
   padding: 0;
 }

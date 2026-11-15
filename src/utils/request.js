@@ -34,7 +34,7 @@ request.interceptors.response.use(
 
     // 🚨 调试用：打印响应状态和数据
     console.log('✅ 响应状态:', response.status)
-    if (!/^\/electricians\/\d+(?:\?|$)/.test(response.config.url)) {
+    if (!/^\/electricians\/\d+(?:\?|$)/.test(response.config.url) && !/^\/admin\/test-tools\/users\//.test(response.config.url)) {
       console.log('✅ 响应数据:', data)
     }
 
@@ -52,7 +52,7 @@ request.interceptors.response.use(
     }
   },
   (error) => {
-    console.error('请求错误:', error)
+    console.error('请求错误:', /^\/admin\/test-tools\/users\//.test(error.config?.url || '') ? { status: error.response?.status, code: error.code } : error)
 
     if (error.response) {
       const { status, data } = error.response
