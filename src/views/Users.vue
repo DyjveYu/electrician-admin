@@ -2,11 +2,12 @@
   <div class="users-page">
     <div v-if="pageAllowed" class="page-card">
       <el-alert v-if="testOpenidMode" title="仅在测试环境可使用，严禁在生产环境使用" type="warning" :closable="false" show-icon class="test-warning" />
-      <el-alert v-if="listError" :title="listError" type="error" :closable="false" />
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadUserList" />
       <!-- 页面标题和操作栏 -->
+      <header class="page-heading"><h2>{{ testOpenidMode ? '微信ID修改' : '用户管理' }}</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>{{ testOpenidMode ? '微信ID修改' : '用户管理' }}</h2>
+
           <el-input
             v-model="searchForm.search"
             placeholder="搜索用户手机号或昵称"
@@ -18,7 +19,7 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
-          
+
           <el-select
             v-model="searchForm.status"
             placeholder="用户状态"
@@ -30,7 +31,7 @@
             <el-option label="冻结" value="banned" />
             <el-option v-if="testOpenidMode" label="已转电工" value="converted_to_electrician" />
           </el-select>
-          
+
           <el-select
             v-model="searchForm.role"
             placeholder="用户角色"
@@ -42,18 +43,18 @@
             <el-option label="电工" value="electrician" />
             <el-option label="企业" value="enterprise" />
           </el-select>
-          
+
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
-          
+
           <el-button @click="handleReset">
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
         </div>
-        
+
         <div v-if="!testOpenidMode" class="right">
           <el-button type="primary" @click="handleExport">
             <el-icon><Download /></el-icon>
@@ -61,19 +62,19 @@
           </el-button>
         </div>
       </div>
-      
+
       <!-- 用户列表表格 -->
-      <el-table
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(searchForm).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="userList"
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
         <el-table-column v-if="!testOpenidMode" type="selection" width="55" />
-        
+
         <el-table-column prop="id" label="ID" width="80" />
-        
-        <el-table-column prop="phone" label="手机号" width="130" />
+
+        <el-table-column show-overflow-tooltip prop="phone" label="手机号" width="130" />
 
         <el-table-column prop="current_role" label="当前角色" width="100">
           <template #default="{ row }">
@@ -96,7 +97,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="status" label="状态" width="210">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
@@ -104,24 +105,23 @@
             </el-tag>
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="created_at" label="注册时间" width="160">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="last_login_at" label="最后登录" width="160">
           <template #default="{ row }">
             {{ row.last_login_at ? formatDate(row.last_login_at) : '从未登录' }}
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="identity_successor_id" label="转入电工ID" width="110" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            
-            
+
             <el-button
               type="primary"
               size="small"
@@ -137,7 +137,7 @@
             >
               冻结
             </el-button>
-            
+
             <el-button
               v-else-if="!testOpenidMode && (row.status === 'banned' || row.status === 'frozen')"
               type="success"
@@ -150,7 +150,7 @@
           </template>
         </el-table-column>
       </el-table>
-      
+
       <!-- 分页 -->
       <div class="pagination-wrapper">
         <el-pagination
@@ -164,13 +164,13 @@
         />
       </div>
     </div>
-    
+
     <!-- 用户详情对话框 -->
     <el-dialog
       v-if="pageAllowed"
       v-model="detailDialogVisible"
       title="用户详情"
-      width="600px"
+      width="min(600px, calc(100vw - 32px))"
     >
       <div v-if="currentUser" class="user-detail">
         <el-descriptions :column="2" border>
@@ -189,7 +189,7 @@
               {{ currentUser.can_be_electrician ? '已认证' : '未认证' }}
             </el-tag>
           </el-descriptions-item>
-       
+
           <el-descriptions-item label="状态">
             <el-tag :type="getStatusTagType(currentUser.status)">
               {{ getStatusText(currentUser.status) }}
@@ -199,12 +199,12 @@
           <el-descriptions-item label="最后登录">{{ currentUser.last_login_at ? formatDate(currentUser.last_login_at) : '从未登录' }}</el-descriptions-item>
         </el-descriptions>
       </div>
-      
+
       <template #footer>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-if="testOpenidMode && pageAllowed" v-model="editVisible" title="修改微信ID" width="620px"
+    <el-dialog v-if="testOpenidMode && pageAllowed" v-model="editVisible" title="修改微信ID" width="min(620px, calc(100vw - 32px))"
       :close-on-click-modal="!editSaving" :close-on-press-escape="!editSaving" :show-close="!editSaving">
       <div v-loading="editLoading">
         <el-alert title="仅在测试环境可使用，严禁在生产环境使用" type="warning" :closable="false" />
@@ -230,6 +230,7 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTestToolsStore } from '@/stores/testTools'
@@ -379,7 +380,7 @@ const handleBanUser = async (user) => {
         type: 'warning'
       }
     )
-    
+
     const response = await banUser(user.id)
     if (response.code === 200) {
       ElMessage.success('用户冻结成功')
@@ -404,7 +405,7 @@ const handleUnbanUser = async (user) => {
         type: 'warning'
       }
     )
-    
+
     const response = await unbanUser(user.id)
     if (response.code === 200) {
       ElMessage.success('用户解封成功')
@@ -446,54 +447,10 @@ onMounted(() => {
   padding: 0;
 }
 
-.table-toolbar {
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-}
-
 .user-detail {
   padding: 16px 0;
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
-  .table-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .table-toolbar .left {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .table-toolbar .left h2 {
-    margin-bottom: 8px;
-  }
-}
+
 </style>

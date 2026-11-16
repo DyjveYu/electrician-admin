@@ -114,9 +114,9 @@ onMounted(loadAds)
 </script>
 
 <style scoped>
-.content-ads { padding: 24px; }
-.ad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-top: 20px; }
+
+.ad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 20px; margin-top: 20px; }
 .preview { display: block; width: 100%; height: 140px; margin-bottom: 12px; background: #f5f7fa; }
-.tip { color: #606266; font-size: 12px; line-height: 1.7; margin-top: 8px; width: 100%; }
+.tip { color: var(--ops-muted); font-size: 12px; line-height: 1.7; margin-top: 8px; width: 100%; }
 .el-select { width: 100%; }
 </style>

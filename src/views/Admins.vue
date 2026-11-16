@@ -2,9 +2,10 @@
   <div class="admins-page">
     <div class="page-card">
       <!-- 页面标题和操作栏 -->
+      <header class="page-heading"><h2>管理员中心</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>管理员中心</h2>
+
           <el-input
             v-model="searchForm.search"
             placeholder="搜索用户名或姓名"
@@ -48,7 +49,8 @@
       </div>
 
       <!-- 管理员列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadAdminList" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(searchForm).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="adminList"
         style="width: 100%"
@@ -132,7 +134,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="450px"
+      width="min(450px, calc(100vw - 32px))"
       :close-on-click-modal="false"
     >
       <el-form
@@ -181,6 +183,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, onMounted } from 'vue'
 import { getAdminList, createAdmin, updateAdmin, deactivateAdmin, activateAdmin } from '@/api/admins'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -234,7 +238,7 @@ const formatDate = (dateString) => {
 }
 
 const loadAdminList = async () => {
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const params = {
       page: pagination.page,
@@ -248,6 +252,7 @@ const loadAdminList = async () => {
       pagination.total = response.data.total
     }
   } catch (error) {
+    listError.value = adminList.value.length ? '刷新失败，当前显示上次加载的数据' : '列表加载失败，请重新加载'
     console.error('加载管理员列表失败:', error)
     ElMessage.error('加载管理员列表失败')
   } finally {
@@ -421,55 +426,10 @@ onMounted(() => {
   padding: 0;
 }
 
-.table-toolbar {
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-}
-
 .form-tip {
   font-size: 12px;
-  color: #999;
+  color: var(--ops-muted);
   margin-top: 4px;
 }
 
-@media (max-width: 768px) {
-  .table-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .table-toolbar .left {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .table-toolbar .left h2 {
-    margin-bottom: 8px;
-  }
-}
 </style>

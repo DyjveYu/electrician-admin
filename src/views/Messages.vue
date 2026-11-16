@@ -36,7 +36,8 @@
 
     <!-- 通知列表 -->
     <div class="table-section">
-      <el-table :data="messages" v-loading="loading" stripe>
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadMessages" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(filters).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'" :data="messages" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="标题" min-width="200" />
         <el-table-column label="首页排序" width="110"><template #default="{ row }">{{ row.sort_order ?? '未配置' }}</template></el-table-column>
@@ -92,7 +93,7 @@
     <el-dialog
       v-model="showCreateDialog"
       :title="editingMessage ? '编辑通知' : '发布通知'"
-      width="600px"
+      width="min(600px, calc(100vw - 32px))"
       :close-on-click-modal="!saving"
       :close-on-press-escape="!saving"
       :show-close="!saving"
@@ -162,7 +163,7 @@
     </el-dialog>
 
     <!-- 查看对话框 -->
-    <el-dialog v-model="showViewDialog" title="通知详情" width="500px">
+    <el-dialog v-model="showViewDialog" title="通知详情" width="min(500px, calc(100vw - 32px))">
       <div v-if="viewingMessage">
         <p><strong>标题：</strong>{{ viewingMessage.title }}</p>
         <p><strong>内容：</strong>{{ viewingMessage.content }}</p>
@@ -179,6 +180,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -230,7 +233,7 @@ const messageRules = {
 const loadMessages = async () => {
   const sequence = ++listSequence
   try {
-    loading.value = true
+    loading.value = true; listError.value = ''
     const params = {
       page: pagination.page,
       limit: pagination.limit,
@@ -241,6 +244,7 @@ const loadMessages = async () => {
     messages.value = response.data.messages
     pagination.total = response.data.total
   } catch (error) {
+    if (active && sequence === listSequence) listError.value = messages.value.length ? '刷新失败，当前显示上次加载的数据' : '列表加载失败，请重新加载'
     if (active && sequence === listSequence) ElMessage.error('获取通知列表失败')
   } finally {
     if (active && sequence === listSequence) loading.value = false
@@ -302,7 +306,7 @@ const saveMessage = async (publishNow = false) => {
       ElMessage.error('定时通知需要计划时间')
       return
     }
-    
+
     if (editingMessage.value) {
       await updateMessage(editingMessage.value.id, payload)
       if (!active) return
@@ -312,7 +316,7 @@ const saveMessage = async (publishNow = false) => {
       if (!active) return
       ElMessage.success('通知创建成功')
     }
-    
+
     showCreateDialog.value = false
     loadMessages()
   } catch (error) {
@@ -332,7 +336,7 @@ const deleteMessage = async (message) => {
       type: 'warning'
     })
     if (!active) return
-    
+
     await deleteMessageApi(message.id)
     if (!active) return
     ElMessage.success('删除成功')
@@ -442,18 +446,6 @@ onMounted(() => {
   padding: 20px;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.page-header h2 {
-  margin: 0;
-  color: #303133;
-}
-
 .filter-section {
   background: #f5f7fa;
   padding: 20px;
@@ -465,12 +457,6 @@ onMounted(() => {
   background: #fff;
   border-radius: 4px;
   overflow: hidden;
-}
-
-.pagination-section {
-  padding: 20px;
-  text-align: right;
-  border-top: 1px solid #ebeef5;
 }
 
 .el-table {

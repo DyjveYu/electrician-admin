@@ -35,56 +35,10 @@ const goBack = () => {
 </script>
 
 <style scoped>
-.not-found-page {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.not-found-content {
-  text-align: center;
-  color: #fff;
-}
-
-.error-code {
-  font-size: 120px;
-  font-weight: bold;
-  margin-bottom: 20px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.error-message {
-  font-size: 32px;
-  font-weight: 500;
-  margin-bottom: 16px;
-}
-
-.error-description {
-  font-size: 16px;
-  margin-bottom: 40px;
-  opacity: 0.9;
-}
-
-.error-actions {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-}
-
-@media (max-width: 768px) {
-  .error-code {
-    font-size: 80px;
-  }
-  
-  .error-message {
-    font-size: 24px;
-  }
-  
-  .error-actions {
-    flex-direction: column;
-    align-items: center;
-  }
-}
+.not-found-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--ops-bg); }
+.not-found-content { text-align: center; max-width: 100%; }
+.error-code { color: var(--ops-primary); font-size: clamp(80px, 12vw, 120px); line-height: 1.3; font-weight: 600; }
+.error-message { font-size: 24px; font-weight: 600; margin: 16px 0; }
+.error-description { color: var(--ops-muted); margin-bottom: 32px; }
+.error-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 </style>

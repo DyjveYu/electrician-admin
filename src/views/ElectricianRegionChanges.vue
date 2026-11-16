@@ -15,8 +15,8 @@
       </el-select>
       <el-button @click="loadList">刷新</el-button>
     </div>
-    <el-alert v-if="listError" :title="listError" type="error" :closable="false" />
-    <el-table v-loading="loading" :data="rows" row-key="id" empty-text="暂无区域变更记录">
+    <LoadFeedback :message="listError" :loading="loading" @retry="loadList" />
+    <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : '暂无数据'" v-loading="loading" :data="rows" row-key="id" empty-text="暂无区域变更记录">
       <el-table-column label="申请类型" width="110">
         <template #default="{ row }">{{ row.operation === 'add' ? '新增区域' : '变更区域' }}</template>
       </el-table-column>
@@ -47,6 +47,7 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
 import { onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import RegionChangeReview from '@/components/RegionChangeReview.vue'
@@ -96,6 +97,6 @@ onUnmounted(() => { listRequest += 1 })
 
 <style scoped>
 .region-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
-.region-toolbar h2 { margin: 0; font-size: 18px; }
+
 .el-pagination { margin-top: 20px; }
 </style>

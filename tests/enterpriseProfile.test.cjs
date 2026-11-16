@@ -16,6 +16,7 @@ function harness(file, exports) {
     onMounted: fn => mounted.push(fn), onUnmounted: fn => unmounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn), watch: (source, fn) => watchers.push(fn),
     useRoute: () => route, useRouter: () => ({ push: value => routes.push(value), replace: value => routes.push(value) }),
     useAuthStore: () => ({ adminInfo: { real_name: '测试' }, logout() {} }),
+    useTestToolsStore: () => ({ refresh() {}, wechatIdEditEnabled: false }),
     ElMessage: { success() {}, error() {} }, ElMessageBox: {}, request,
     getTodoCounts: () => request.get('/admin/todo/counts'),
     window: { addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: name => listeners.delete(name), dispatchEvent: event => { events.push(event.type); listeners.get(event.type)?.(); } },
@@ -56,7 +57,7 @@ test('M2.3 切换企业时，旧详情响应不能标记新企业', async () => 
 test('M2.3 铃铛两项计入总数并跳到各自筛选，30秒刷新且卸载清理', async () => {
   const h = harness('layout/index.vue', 'todoCounts, loadTodoCounts, handleTodoCommand');
   h.mounted.forEach(fn => fn()); assert.equal(h.timers[0].ms, 30000);
-  h.requests[0].resolve({ code: 200, data: { depositRefunds: 1, certifications: 2, unfreezeApplications: 3, enterpriseNewCertifications: 4, enterpriseInfoChanges: 5 } }); await flush();
+  h.requests[0].resolve({ code: 200, data: { depositRefunds: 1, electricianNewCertifications: 2, unfreezeApplications: 3, enterpriseNewCertifications: 4, enterpriseInfoChanges: 5 } }); await flush();
   assert.equal(h.todoCounts.total, 15);
   h.handleTodoCommand('enterpriseNew'); h.handleTodoCommand('enterpriseChange');
   assert.equal(h.routes[0], '/enterprises?profileNotice=new_certification'); assert.equal(h.routes[1], '/enterprises?profileNotice=information_changed');

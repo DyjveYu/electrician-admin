@@ -5,13 +5,13 @@
       <el-button type="primary" @click="loadStats">刷新</el-button>
     </div>
 
-    <div v-if="loading" role="status">正在加载统计数据…</div>
+    <div v-if="loading" class="read-loading" role="status">正在加载统计数据…</div>
     <div v-else-if="failed" class="stats-error">
       <el-alert title="加载地区统计失败" type="error" :closable="false" show-icon />
       <el-button @click="loadStats">重试</el-button>
     </div>
-    <template v-else-if="stats">
-      <el-row :gutter="24">
+    <template v-if="stats">
+      <el-row :gutter="16" class="stats-row">
         <el-col v-for="metric in metrics" :key="metric.label" :xs="24" :sm="12" :lg="6">
           <div class="stat-card">
             <div class="stat-icon" :class="metric.color">
@@ -71,7 +71,7 @@ const metrics = computed(() => [
 
 const chartOption = computed(() => ({
   aria: { enabled: true },
-  color: ['#409eff'],
+  color: ['#2563eb'],
   tooltip: { trigger: 'axis', renderMode: 'richText', axisPointer: { type: 'shadow' } },
   grid: { left: 20, right: 35, top: 45, bottom: 65, containLabel: true },
   xAxis: {
@@ -117,87 +117,9 @@ onUnmounted(() => { latestRequest += 1 })
 </script>
 
 <style scoped>
-.stats-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.stats-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  height: 120px;
-  padding: 20px;
-  box-sizing: border-box;
-  margin-bottom: 24px;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.stat-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  font-size: 24px;
-}
-
-.certified {
-  color: #67c23a;
-  background: #f0f9eb;
-}
-
-.uncertified {
-  color: #409eff;
-  background: #ecf5ff;
-}
-
-.paid {
-  color: #e6a23c;
-  background: #fdf6ec;
-}
-
-.refunded {
-  color: #909399;
-  background: #f4f4f5;
-}
-
-.stat-content {
-  min-width: 0;
-}
-
-.stat-number {
-  overflow-wrap: anywhere;
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.stat-label {
-  margin-top: 6px;
-  font-size: 14px;
-  color: #909399;
-}
-
-.region-chart {
-  height: 480px;
-}
-
-.stats-error .el-button {
-  margin-top: 12px;
-}
+.stat-card { display: flex; align-items: center; gap: 16px; height: 100%; }
+.stat-icon { font-size: 22px; padding: 12px; border-radius: 8px; background: var(--ops-primary-soft); color: var(--ops-primary); }
+.stat-content { min-width: 0; }
+.region-chart { height: 440px; }
+.stats-error { margin-bottom: 20px; }
 </style>

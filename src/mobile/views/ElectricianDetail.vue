@@ -57,19 +57,19 @@
         <div class="photos-section">
           <div class="section-title">证件照片</div>
           <div class="photos-grid">
-            <div v-if="detail.id_card_front" class="photo-item" @click="previewImage(detail.id_card_front)">
+            <div v-if="detail.id_card_front" class="photo-item" role="button" tabindex="0" @keydown.enter="previewImage(detail.id_card_front)" @click="previewImage(detail.id_card_front)">
               <p class="photo-label">身份证正面</p>
-              <van-image :src="detail.id_card_front" fit="cover" class="photo" />
+              <van-image :src="detail.id_card_front" fit="contain" class="photo" />
             </div>
-            <div v-if="detail.id_card_back" class="photo-item" @click="previewImage(detail.id_card_back)">
+            <div v-if="detail.id_card_back" class="photo-item" role="button" tabindex="0" @keydown.enter="previewImage(detail.id_card_back)" @click="previewImage(detail.id_card_back)">
               <p class="photo-label">身份证背面</p>
-              <van-image :src="detail.id_card_back" fit="cover" class="photo" />
+              <van-image :src="detail.id_card_back" fit="contain" class="photo" />
             </div>
             <div v-for="license in detail.licenses" :key="license.license_type" class="photo-item">
               <p class="photo-label">{{ license.label }}</p>
               <p>证号 {{ license.certificate_number || '未记录' }}</p>
               <p>{{ license.start_date || '未记录' }} 至 {{ license.end_date || '未记录' }}</p>
-              <van-image v-if="license.photo_url" :src="license.photo_url" fit="cover" class="photo" @click="previewImage(license.photo_url)" />
+              <van-image v-if="license.photo_url" :src="license.photo_url" fit="contain" class="photo" @click="previewImage(license.photo_url)" />
             </div>
           </div>
           <div v-if="!detail.id_card_front && !detail.id_card_back && !detail.licenses?.length" class="no-photos">
@@ -200,84 +200,17 @@ watch(() => route.query.id, loadDetail, { immediate: true })
 </script>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: #f7f8fa;
-  padding-bottom: 80px;
-}
-
-.loading-state {
-  display: flex;
-  justify-content: center;
-  padding: 80px 0;
-}
-
-.content {
-  padding: 12px 0;
-}
-
-.photos-section {
-  margin: 16px 12px;
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #666;
-  margin-bottom: 12px;
-}
-
-.photos-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.photo-item {
-  text-align: center;
-}
-
-.photo-label {
-  font-size: 12px;
-  color: #999;
-  margin: 0 0 6px;
-}
-
-.photo {
-  width: 100%;
-  height: 120px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #eee;
-}
-
-.no-photos {
-  text-align: center;
-  color: #999;
-  font-size: 14px;
-  padding: 20px 0;
-}
-
-.text-danger {
-  color: #ee0a24;
-}
-
-.bottom-actions {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #fff;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.bottom-actions .van-button {
-  flex: 1;
-}
+.content { padding-bottom: 200px; }
+.loading-state { padding: 56px 16px; text-align: center; }
+.photos-section { margin: 24px 16px; }
+.section-title { font-weight: 600; margin-bottom: 12px; }
+.photos-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.photo-item { background: white; border: 1px solid var(--ops-border); border-radius: 10px; padding: 12px; overflow-wrap: anywhere; }
+.photo-label { margin: 0 0 8px; font-weight: 600; font-size: 13px; }
+.photo { width: 100%; height: 100px; margin-top: 8px; border-radius: 6px; }
+.photo-item p { font-size: 12px; color: var(--ops-muted); }
+.no-photos { padding: 32px; text-align: center; color: var(--ops-muted); }
+.bottom-actions { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: white; border-top: 1px solid var(--ops-border); }
+.bottom-actions .van-button { flex: 1 1 140px; }
+@media (max-height: 500px) { .bottom-actions { position: static; } .content { padding-bottom: 16px; } }
 </style>

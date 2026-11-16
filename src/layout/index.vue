@@ -1,16 +1,19 @@
 <template>
-  <el-container class="layout-container">
+  <el-container class="layout-container" :class="{ 'nav-open': mobileMenuOpen }">
+    <button v-if="isNarrow && mobileMenuOpen" class="nav-backdrop" aria-label="关闭导航" @click="mobileMenuOpen = false"></button>
     <!-- 侧边栏 -->
-    <el-aside :width="isCollapse ? '64px' : '200px'" class="sidebar">
+    <el-aside :width="isNarrow ? '224px' : isCollapse ? '64px' : '224px'" class="sidebar">
       <div class="logo">
-        <el-icon v-if="!isCollapse" class="logo-icon-large"><Tools /></el-icon>
-        <span v-if="!isCollapse" class="logo-text">电工维修平台</span>
+        <el-icon v-if="!(isCollapse && !isNarrow)" class="logo-icon-large"><Tools /></el-icon>
+        <span v-if="!(isCollapse && !isNarrow)" class="logo-text">电工维修平台</span>
         <el-icon v-else class="logo-icon"><Tools /></el-icon>
       </div>
       
       <el-menu
-        :default-active="$route.path"
-        :collapse="isCollapse"
+        :default-active="activeMenu"
+        :default-openeds="openedMenus"
+        @select="mobileMenuOpen = false"
+        :collapse="isCollapse && !isNarrow"
         :unique-opened="true"
         router
         class="sidebar-menu"
@@ -101,24 +104,27 @@
             type="text"
             @click="toggleCollapse"
             class="collapse-btn"
+            :aria-label="isNarrow ? '打开导航' : isCollapse ? '展开导航' : '收起导航'"
+            :aria-expanded="isNarrow ? mobileMenuOpen : !isCollapse"
           >
             <el-icon><Expand v-if="isCollapse" /><Fold v-else /></el-icon>
           </el-button>
           
           <el-breadcrumb separator="/">
             <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item v-if="parentTitle" :to="parentPath ? { path: parentPath } : undefined">{{ parentTitle }}</el-breadcrumb-item>
             <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
         
         <div class="header-right">
           <!-- 待办通知 -->
-          <el-dropdown trigger="hover" @command="handleTodoCommand" @visible-change="visible => visible && loadTodoCounts()">
-            <span class="todo-trigger">
+          <el-dropdown trigger="click" @command="handleTodoCommand" @visible-change="visible => visible && loadTodoCounts()">
+            <button type="button" class="todo-trigger" aria-label="查看待办通知">
               <el-badge :value="todoCounts.total" :max="99" :hidden="todoCounts.total === 0">
                 <el-icon :size="20"><Bell /></el-icon>
               </el-badge>
-            </span>
+            </button>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="enterpriseNew">
@@ -158,23 +164,19 @@
           </el-dropdown>
 
           <el-dropdown @command="handleCommand">
-            <span class="user-info">
+            <button type="button" class="user-info" aria-label="管理员账号菜单">
               <el-avatar :size="32" class="user-avatar">
                 <el-icon><User /></el-icon>
               </el-avatar>
               <span class="username">{{ authStore.adminInfo?.real_name || '管理员' }}</span>
               <el-icon class="arrow-down"><ArrowDown /></el-icon>
-            </span>
+            </button>
             
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="changePassword">
                   <el-icon><Lock /></el-icon>
                   修改密码
-                </el-dropdown-item>
-                <el-dropdown-item command="profile">
-                  <el-icon><User /></el-icon>
-                  个人信息
                 </el-dropdown-item>
                 <el-dropdown-item command="logout" divided>
                   <el-icon><SwitchButton /></el-icon>
@@ -241,7 +243,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTestToolsStore } from '@/stores/testTools'
@@ -254,6 +256,14 @@ const authStore = useAuthStore()
 const testTools = useTestToolsStore()
 
 const isCollapse = ref(false)
+const isNarrow = ref(window.innerWidth < 900)
+const mobileMenuOpen = ref(false)
+const updateViewport = () => { isNarrow.value = window.innerWidth < 900; mobileMenuOpen.value = false }
+watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
+const activeMenu = computed(() => /^\/partners\/\d+\/stats$/.test(route.path) ? '/partners' : route.path)
+const openedMenus = computed(() => route.path.startsWith('/electricians') ? ['electrician-management'] : route.path.startsWith('/home-information') ? ['/home-information'] : route.path.startsWith('/admins') ? ['administrator-center'] : [])
+const parentTitle = computed(() => route.path.startsWith('/electricians/') ? '电工管理' : route.path.startsWith('/home-information/') ? '首页信息管理' : route.path.startsWith('/admins') ? '管理员中心' : /^\/partners\/\d+\/stats$/.test(route.path) ? '合作伙伴管理' : '')
+const parentPath = computed(() => parentTitle.value === '电工管理' ? '/electricians' : parentTitle.value === '管理员中心' ? '/admins' : parentTitle.value === '合作伙伴管理' ? '/partners' : '')
 
 // 待办数量
 const todoCounts = reactive({
@@ -308,6 +318,7 @@ const handleTodoCommand = (command) => {
 }
 
 onMounted(() => {
+  window.addEventListener('resize', updateViewport)
   testTools.refresh()
   window.addEventListener('enterprise-profile-viewed', loadTodoCounts)
   window.addEventListener('electrician-region-reviewed', loadTodoCounts)
@@ -317,6 +328,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', updateViewport)
   todoActive = false
   todoGeneration++
   window.removeEventListener('enterprise-profile-viewed', loadTodoCounts)
@@ -360,31 +372,10 @@ const passwordRules = {
   ]
 }
 
-const currentPageTitle = computed(() => {
-  const titleMap = {
-    '/home-information/electrician-home': '电工之家',
-    '/home-information/safety-knowledge': '用电安全知识',
-    '/home-information/ads': '广告维护',
-    '/dashboard': '仪表盘',
-    '/admins': '管理员中心',
-    '/admins/wechat-id': '微信ID修改',
-    '/users': '用户管理',
-    '/electricians': '电工管理',
-    '/electricians/region-stats': '统计概览',
-    '/electricians/region-changes': '区域变更审核',
-    '/partners': '合作伙伴管理',
-    '/referrers': '推荐达人管理',
-    '/referrer-applications': '推荐达人申请审核',
-    '/orders': '工单管理',
-    '/orders/non-five-star': '非五星订单',
-    '/home-information/notices': '信息栏通知',
-    '/deposits': '押金管理'
-  }
-  return titleMap[route.path] || '未知页面'
-})
+const currentPageTitle = computed(() => route.path === '/admins' ? '管理员列表' : route.meta.title || '管理后台')
 
 const toggleCollapse = () => {
-  isCollapse.value = !isCollapse.value
+  isCollapse.value = !(isCollapse && !isNarrow).value
 }
 
 const handleCommand = async (command) => {
@@ -444,147 +435,34 @@ const handleChangePassword = async () => {
 </script>
 
 <style scoped>
-.layout-container {
-  height: 100vh;
-}
-
-.sidebar {
-  background: #001529;
-  transition: width 0.3s;
-}
-
-.logo {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 16px;
-  border-bottom: 1px solid #1f1f1f;
-}
-
-.logo-icon-large {
-  color: #fff;
-  font-size: 24px;
-  margin-right: 8px;
-}
-
-.logo-text {
-  color: #fff;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.logo-icon {
-  color: #fff;
-  font-size: 24px;
-}
-
-.sidebar-menu {
-  border-right: none;
-  background: #001529;
-}
-
-.sidebar-menu :deep(.el-menu-item) {
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.sidebar-menu :deep(.el-menu-item:hover) {
-  background-color: #1890ff;
-  color: #fff;
-}
-
-.sidebar-menu :deep(.el-menu-item.is-active) {
-  background-color: #1890ff;
-  color: #fff;
-}
-
-.sidebar-menu :deep(.el-sub-menu__title) {
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.sidebar-menu :deep(.el-sub-menu__title:hover) {
-  background-color: #1890ff;
-  color: #fff;
-}
-
-.sidebar-menu :deep(.el-sub-menu .el-menu) {
-  background-color: #001529;
-}
-
-.layout-header {
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.collapse-btn {
-  font-size: 18px;
-  color: #666;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.todo-trigger {
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-  display: inline-flex;
-  align-items: center;
-}
-
-.todo-trigger:hover {
-  background-color: #f5f5f5;
-}
-
-.item-badge {
-  margin-left: 8px;
-}
-
-.no-todo {
-  color: #999;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-}
-
-.user-info:hover {
-  background-color: #f5f5f5;
-}
-
-.username {
-  color: #333;
-  font-size: 14px;
-}
-
-.arrow-down {
-  color: #999;
-  font-size: 12px;
-}
-
-.layout-content {
-  background: #f0f2f5;
-  padding: 24px;
-  overflow-y: auto;
+.sidebar { background: var(--ops-sidebar); display: flex; flex-direction: column; flex-shrink: 0; transition: width .2s; overflow: hidden; }
+.logo { height: 80px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid #233048; }
+.logo-text { color: white; font-size: 16px; font-weight: 600; white-space: nowrap; }
+.logo-icon-large, .logo-icon { color: #93b1f5; font-size: 24px; }
+.sidebar-menu { border: 0; background: transparent; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 8px; --el-menu-bg-color: var(--ops-sidebar); --el-menu-text-color: #cbd5e1; --el-menu-hover-bg-color: #1e293b; --el-menu-active-color: #fff; --el-menu-item-height: 46px; }
+.sidebar-menu :deep(.el-menu-item), .sidebar-menu :deep(.el-sub-menu__title) { border-radius: 6px; margin-bottom: 4px; }
+.sidebar-menu :deep(.el-menu-item.is-active) { background: var(--ops-primary); color: white; }
+.sidebar-menu :deep(.el-menu-item:hover), .sidebar-menu :deep(.el-sub-menu__title:hover) { background: #1e293b; color: white; }
+.sidebar-menu :deep(.el-menu-item.is-active:hover) { background: var(--ops-primary-hover); }
+.sidebar-menu :deep(.el-sub-menu .el-menu) { background: transparent; }
+.sidebar-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) { color: white; }
+.layout-header { background: white; height: 64px; flex-shrink: 0; border-bottom: 1px solid var(--ops-border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; gap: 16px; }
+.header-left, .header-right { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.header-left :deep(.el-breadcrumb) { display: flex; flex-wrap: wrap; gap: 4px 0; line-height: 1.5; }
+.collapse-btn { font-size: 20px; color: var(--ops-muted); min-width: 36px; }
+.todo-trigger, .user-info { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; min-height: 40px; border: 0; border-radius: 6px; color: var(--ops-muted); background: transparent; cursor: pointer; }
+.todo-trigger:hover, .user-info:hover { background: var(--ops-bg); }
+.user-avatar { background: var(--ops-primary-soft); color: var(--ops-primary); }
+.username { color: var(--ops-text); font-size: 14px; white-space: nowrap; }
+.arrow-down { font-size: 12px; }
+.item-badge { margin-left: 8px; }
+.nav-backdrop { position: fixed; inset: 0; z-index: 1999; border: none; background: rgb(15 23 42 / 45%); }
+@media (max-width: 899px) {
+ .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 2000; transform: translateX(-100%); transition: transform .2s; }
+ .nav-open .sidebar { transform: translateX(0); }
+ .layout-header { padding: 0 16px; }
+ .header-left, .header-right { gap: 8px; }
+ .username { display: none; }
+ .collapse-btn, .todo-trigger, .user-info { min-height: 44px; min-width: 44px; }
 }
 </style>

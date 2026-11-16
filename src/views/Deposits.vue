@@ -2,9 +2,10 @@
   <div class="deposits-page">
     <div class="page-card">
       <!-- 页面标题 -->
+      <header class="page-heading"><h2>押金管理</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>押金管理</h2>
+
           <el-input
             v-model="filters.search"
             placeholder="搜索电工ID"
@@ -37,7 +38,8 @@
       </div>
 
       <!-- 押金列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadDeposits" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(filters).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="depositList"
         style="width: 100%"
@@ -52,7 +54,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="amount" label="金额" width="100">
+        <el-table-column align="right" prop="amount" label="金额" width="100">
           <template #default="{ row }">
             ¥{{ row.amount }}
           </template>
@@ -118,7 +120,7 @@
     <el-dialog
       v-model="detailDialogVisible"
       title="押金详情"
-      width="500px"
+      width="min(500px, calc(100vw - 32px))"
     >
       <el-descriptions v-if="currentDeposit" :column="2" border>
         <el-descriptions-item label="押金ID">{{ currentDeposit.id }}</el-descriptions-item>
@@ -146,7 +148,7 @@
     <el-dialog
       v-model="refundDialogVisible"
       title="处理退款"
-      width="400px"
+      width="min(400px, calc(100vw - 32px))"
     >
       <el-form :model="refundForm" label-width="80px">
         <el-form-item label="押金ID">{{ currentDeposit?.id }}</el-form-item>
@@ -175,6 +177,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, onMounted } from 'vue'
 import { getDepositList, getDepositDetail, processRefund } from '@/api/deposits'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -230,7 +234,7 @@ const formatDate = (dateString) => {
 }
 
 const loadDeposits = async () => {
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const params = {
       page: pagination.page,
@@ -247,6 +251,7 @@ const loadDeposits = async () => {
       pagination.total = response.data.total
     }
   } catch (error) {
+    listError.value = depositList.value.length ? '刷新失败，当前显示上次加载的数据' : '列表加载失败，请重新加载'
     console.error('加载押金列表失败:', error)
     ElMessage.error('加载押金列表失败')
   } finally {
@@ -331,36 +336,6 @@ onMounted(() => {
 <style scoped>
 .deposits-page {
   padding: 0;
-}
-
-.table-toolbar {
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
 }
 
 .transaction-id {

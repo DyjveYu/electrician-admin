@@ -1,6 +1,7 @@
 <template>
   <div class="login-container">
     <div class="login-box">
+      <div class="login-kicker">运营管理中心</div>
       <div class="login-header">
         <div class="logo">
           <el-icon class="logo-icon"><Tools /></el-icon>
@@ -14,11 +15,13 @@
         :model="loginForm"
         :rules="loginRules"
         class="login-form"
+        label-position="top"
         @submit.prevent="handleLogin"
       >
-        <el-form-item prop="username">
+        <el-form-item prop="username" label="管理员账号">
           <el-input
             v-model="loginForm.username"
+            autocomplete="username"
             placeholder="请输入用户名"
             size="large"
             :prefix-icon="User"
@@ -26,9 +29,10 @@
           />
         </el-form-item>
         
-        <el-form-item prop="password">
+        <el-form-item prop="password" label="登录密码">
           <el-input
             v-model="loginForm.password"
+            autocomplete="current-password"
             type="password"
             placeholder="请输入密码"
             size="large"
@@ -105,99 +109,14 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.login-container {
-  height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.login-box {
-  width: 100%;
-  max-width: 400px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 40px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.logo-icon {
-  font-size: 32px;
-  color: #1890ff;
-}
-
-.title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: #666;
-  margin: 0;
-}
-
-.login-form {
-  margin-bottom: 24px;
-}
-
-.login-form :deep(.el-form-item) {
-  margin-bottom: 24px;
-}
-
-.login-btn {
-  width: 100%;
-  height: 48px;
-  font-size: 16px;
-  font-weight: 500;
-  border-radius: 8px;
-}
-
-.login-footer {
-  text-align: center;
-}
-
-.tips {
-  font-size: 12px;
-  color: #999;
-  margin: 0;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border-left: 3px solid #1890ff;
-}
-
-/* 响应式设计 */
-@media (max-width: 480px) {
-  .login-box {
-    padding: 30px 20px;
-  }
-  
-  .title {
-    font-size: 20px;
-  }
-  
-  .login-btn {
-    height: 44px;
-    font-size: 15px;
-  }
-}
+.login-container { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 32px 20px; background: var(--ops-bg); }
+.login-box { width: 440px; max-width: 100%; padding: 40px; background: white; border: 1px solid var(--ops-border); border-radius: 16px; box-shadow: 0 16px 48px rgb(15 23 42 / 6%); }
+.login-kicker { color: var(--ops-primary); font-size: 13px; font-weight: 600; margin-bottom: 24px; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon { background: var(--ops-primary-soft); color: var(--ops-primary); border-radius: 10px; padding: 10px; box-sizing: content-box; font-size: 28px; }
+.title { font-size: 24px; font-weight: 600; color: var(--ops-text); }
+.subtitle { font-size: 14px; color: var(--ops-muted); margin: 12px 0 32px; }
+.login-form :deep(.el-form-item__label) { color: var(--ops-text); font-weight: 500; }
+.login-btn { width: 100%; height: 44px; margin-top: 12px; }
+@media (max-width: 480px) { .login-box { padding: 28px 24px; } }
 </style>

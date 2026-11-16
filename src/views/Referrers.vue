@@ -2,9 +2,10 @@
   <div class="referrers-page">
     <div class="page-card">
       <!-- 页面标题和搜索栏 -->
+      <header class="page-heading"><h2>推荐达人管理</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>推荐达人管理</h2>
+
           <el-input
             v-model="searchForm.keyword"
             placeholder="搜索用户昵称或手机号"
@@ -28,7 +29,8 @@
       </div>
 
       <!-- 推荐达人列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadList" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(searchForm).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="tableData"
         style="width: 100%"
@@ -36,7 +38,7 @@
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="nickname" label="用户昵称" min-width="140" />
-        <el-table-column prop="phone" label="手机号" width="130" />
+        <el-table-column show-overflow-tooltip prop="phone" label="手机号" width="130" />
         <el-table-column prop="status" label="状态" width="90" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'info'">
@@ -87,6 +89,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Lock } from '@element-plus/icons-vue'
@@ -107,7 +111,7 @@ const pagination = reactive({
 })
 
 const loadList = async () => {
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const res = await getReferrerList({
       page: pagination.page,
@@ -119,6 +123,7 @@ const loadList = async () => {
       pagination.total = res.data.total || 0
     }
   } catch (error) {
+    listError.value = tableData.value.length ? '刷新失败，当前显示上次加载的数据' : '列表加载失败，请重新加载'
     console.error('加载推荐达人列表失败:', error)
   } finally {
     loading.value = false
@@ -180,37 +185,4 @@ onMounted(() => {
   height: 100%;
 }
 
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.table-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  white-space: nowrap;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-}
 </style>

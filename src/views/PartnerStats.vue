@@ -10,7 +10,9 @@
         <h2>合作伙伴统计</h2>
       </div>
 
-      <template v-if="!loading && partnerInfo">
+      <LoadFeedback :message="loadError" :loading="loading" @retry="loadStats(selectedMonth)" />
+      <el-empty v-if="!loading && !loadError && !partnerInfo" description="暂无合作伙伴资料" />
+      <template v-if="partnerInfo">
         <!-- 合作伙伴信息 -->
         <div class="partner-card">
           <div class="partner-name">{{ partnerInfo.name }}</div>
@@ -35,30 +37,30 @@
           <el-empty v-if="!current" description="暂无统计数据" />
 
           <!-- 第一行：原有统计 -->
-          <el-row :gutter="16" class="stats-grid">
-            <el-col :span="6">
+          <el-row v-if="current" :gutter="16" class="stats-grid">
+            <el-col :xs="24" :sm="12" :lg="6">
               <el-statistic title="区域电工人数" :value="current.totalElectricians" />
             </el-col>
-            <el-col :span="6">
+            <el-col :xs="24" :sm="12" :lg="6">
               <el-statistic title="当月接单数" :value="current.totalOrders" />
             </el-col>
-            <el-col :span="6">
+            <el-col :xs="24" :sm="12" :lg="6">
               <el-statistic title="当月总金额" :value="current.totalAmount" prefix="¥" />
             </el-col>
-            <el-col :span="6">
-              <el-statistic title="当月提成金额" :value="current.totalCommission" prefix="¥" value-style="color: #0F9D58" />
+            <el-col :xs="24" :sm="12" :lg="6">
+              <el-statistic title="当月提成金额" :value="current.totalCommission" prefix="¥" :value-style="{ color: 'var(--ops-success)' }" />
             </el-col>
           </el-row>
           <!-- 第二行：V1.1.2 新增统计 -->
-          <el-row :gutter="16" class="stats-grid" style="margin-top: 16px;">
-            <el-col :span="8">
+          <el-row v-if="current" :gutter="16" class="stats-grid" style="margin-top: 16px;">
+            <el-col :xs="24" :sm="12" :lg="8">
               <el-statistic title="无推荐达人订单数" :value="current.noReferrerOrders" />
             </el-col>
-            <el-col :span="8">
+            <el-col :xs="24" :sm="12" :lg="8">
               <el-statistic title="无推荐达人订单总额" :value="current.noReferrerAmount || 0" prefix="¥" />
             </el-col>
-            <el-col :span="8">
-              <el-statistic title="实际应付佣金（3%）" :value="current.actualCommission || 0" prefix="¥" value-style="color: #0F9D58" />
+            <el-col :xs="24" :sm="12" :lg="8">
+              <el-statistic title="实际应付佣金（3%）" :value="current.actualCommission || 0" prefix="¥" :value-style="{ color: 'var(--ops-success)' }" />
             </el-col>
           </el-row>
         </div>
@@ -70,7 +72,7 @@
           <el-table v-else :data="electricians" style="width: 100%">
             <el-table-column prop="name" label="姓名" width="120" />
             <el-table-column prop="phone" label="电话" width="140" />
-            <el-table-column prop="workNo" label="工号" width="130" />
+            <el-table-column show-overflow-tooltip prop="workNo" label="工号" width="130" />
             <el-table-column prop="district" label="所属区县" />
           </el-table>
         </div>
@@ -80,7 +82,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import LoadFeedback from '@/components/LoadFeedback.vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import request from '@/utils/request'
@@ -88,7 +91,9 @@ import request from '@/utils/request'
 const route = useRoute()
 const partnerId = route.params.id
 
-const loading = ref(true)
+const loading = ref(true), loadError = ref('')
+let requestId = 0, active = true
+onUnmounted(() => { active = false; requestId++ })
 const months = ref([])
 const selectedMonth = ref('')
 const partnerInfo = ref(null)
@@ -96,10 +101,12 @@ const current = ref(null)
 const electricians = ref([])
 
 const loadStats = async (month) => {
-  loading.value = true
+  const currentRequest = ++requestId
+  loading.value = true; loadError.value = ''
   try {
     const params = month ? { month } : {}
     const res = await request({ url: `/admin/partners/${partnerId}/stats`, method: 'get', params })
+    if (!active || currentRequest !== requestId) return
     if (res.code === 200) {
       const d = res.data
       partnerInfo.value = d.partnerInfo
@@ -111,9 +118,9 @@ const loadStats = async (month) => {
       }
     }
   } catch (error) {
-    console.error('加载统计数据失败:', error)
+    if (active && currentRequest === requestId) loadError.value = partnerInfo.value ? '刷新失败，当前显示上次加载的数据' : '统计加载失败，请重新加载'
   } finally {
-    loading.value = false
+    if (active && currentRequest === requestId) loading.value = false
   }
 }
 
@@ -123,24 +130,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.partner-stats-page { height: 100%; }
-.page-card { background: #fff; border-radius: 8px; padding: 20px; }
-.page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 18px; }
-
-.partner-card {
-  background: linear-gradient(135deg, #0F9D58, #81C784);
-  border-radius: 12px; padding: 24px; margin-bottom: 24px; color: #fff;
-}
-.partner-name { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
-.partner-rate { font-size: 16px; opacity: 0.9; margin-bottom: 12px; }
-.area-label { opacity: 0.8; margin-right: 6px; }
-
+.page-header { justify-content: flex-start; }
+.partner-card { background: var(--ops-primary-soft); border: 1px solid #dbe6fc; border-radius: 10px; padding: 24px; margin-bottom: 24px; }
+.partner-name { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+.partner-rate { color: var(--ops-primary); margin-bottom: 12px; }
+.area-label { color: var(--ops-muted); margin-right: 8px; }
 .stats-section { margin-bottom: 24px; }
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.section-header h3 { margin: 0; font-size: 16px; }
-.stats-grid { margin-top: 16px; }
-
-.electrician-section { }
-.electrician-section h3 { font-size: 16px; margin-bottom: 16px; }
+.stats-grid { row-gap: 16px; }
+.stats-grid :deep(.el-statistic) { padding: 20px; border: 1px solid var(--ops-border); border-radius: 10px; height: 100%; }
+.electrician-section h3 { margin-bottom: 16px; }
 </style>

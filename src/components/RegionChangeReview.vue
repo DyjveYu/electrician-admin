@@ -1,7 +1,7 @@
 <template>
     <el-dialog v-model="detailVisible" class="region-review-dialog" top="5vh" title="区域申请详情" width="min(680px, calc(100vw - 32px))" :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving">
       <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
-      <el-button v-if="detailError" @click="openDetail(props.changeId)">重新加载</el-button>
+      <el-button v-if="detailError" @click="openDetail(props.changeId, true)">重新加载</el-button>
       <div v-loading="detailLoading">
         <el-descriptions v-if="detail" :column="1" border>
           <el-descriptions-item label="申请类型">{{ detail.operation === 'add' ? '新增区域' : '变更区域' }}</el-descriptions-item>
@@ -18,7 +18,7 @@
             <div v-for="license in detail.materials.licenses" :key="license.license_type" class="license-material">
               <div>{{ license.label }}　{{ license.certificate_number }}</div>
               <div>{{ license.start_date }} 至 {{ license.end_date }}</div>
-              <el-image v-if="license.photo_url" :src="license.photo_url" :preview-src-list="[license.photo_url]" preview-teleported fit="contain" style="width: 80px; height: 60px" />
+              <el-image v-if="license.photo_url" :src="license.photo_url" :preview-src-list="[license.photo_url]" preview-teleported fit="contain" style="width: 120px; max-width: 100%; height: 90px" />
             </div>
           </el-descriptions-item>
           <el-descriptions-item label="原区域">{{ detail.old_province }}{{ detail.old_city }}{{ detail.old_district }}</el-descriptions-item>
@@ -74,12 +74,12 @@ const rejectReason = ref('')
 const saving = ref(false)
 let detailRequest = 0
 const formatTime = value => value ? new Date(value).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : '未记录'
-async function openDetail(id) {
+async function openDetail(id, preserveReason = false) {
   const request = ++detailRequest
   detailLoading.value = true
   detailError.value = ''
   detail.value = null
-  rejectReason.value = ''
+  if (!preserveReason) rejectReason.value = ''
   try {
     const { data } = await props.api.getRegionChange(id)
     if (request === detailRequest) detail.value = data

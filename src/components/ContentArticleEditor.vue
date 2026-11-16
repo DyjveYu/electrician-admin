@@ -74,9 +74,9 @@ async function upload({ file, onSuccess, onError }) {
 </script>
 
 <style scoped>
-.hint { color: #72767b; font-size: 13px; line-height: 1.6; }
-.block { border: 1px solid #dcdfe6; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
-.block-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.hint { color: var(--ops-muted); font-size: 13px; line-height: 1.6; }
+.block { border: 1px solid var(--ops-border); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.block-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .toolbar { display: flex; gap: 12px; flex-wrap: wrap; }
 img { display: block; max-width: 100%; height: auto; margin: 12px auto; }
 .block img { max-height: 320px; object-fit: contain; }

@@ -2,9 +2,11 @@
   <div class="time-period-fees-page">
     <div class="page-card">
       <!-- 页面标题 -->
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadData" />
+      <header class="page-heading"><h2>时段计费配置</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>时段计费配置</h2>
+
         </div>
         <div class="right">
           <el-select v-model="selectedGroup" aria-label="筛选费率档位" style="width: 165px">
@@ -27,13 +29,15 @@
         快修使用通用费率。电工认证按接单地市展示对应档位的上门费。修改金额后，下次查询使用新配置。
       </el-alert>
 
+      <el-empty v-if="!loading && !listError && !groups.length" description="暂无费率配置" />
       <div v-loading="loading">
         <section v-for="group in visibleGroups" :key="group.key" class="fee-group">
           <h3>{{ group.label }}</h3>
           <p v-if="group.key === 'legacy'">适用于单日快修</p>
           <p v-else-if="group.key === 'other'">适用于其余已开通地市</p>
           <p v-else>适用城市 {{ group.cities.map(city => city.name).join('、') || '暂无' }}</p>
-          <el-table :data="group.fees" row-key="id" style="width: 100%">
+
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (false) ? '未找到符合条件的数据' : '暂无数据'" :data="group.fees" row-key="id" style="width: 100%">
             <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="period_name" label="时段名称" width="150">
               <template #default="{ row }">
@@ -101,6 +105,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { computed, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getTimePeriodFees, updateTimePeriodFee } from '@/api/system'
@@ -133,7 +139,7 @@ const formatDate = (dateStr) => {
 }
 
 const loadData = async () => {
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const res = await getTimePeriodFees()
     if (res.code === 200) {
@@ -150,6 +156,7 @@ const loadData = async () => {
       ElMessage.error(res.message || '加载失败')
     }
   } catch (error) {
+    listError.value = groups.value.length ? '刷新失败，当前显示上次加载的数据' : '列表加载失败，请重新加载'
     console.error('加载时段费率失败:', error)
     ElMessage.error('加载时段费率失败')
   } finally {
@@ -203,43 +210,13 @@ onMounted(() => {
 
 <style scoped>
 .time-period-fees-page {
-  padding: 20px;
-}
-
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.table-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.table-toolbar .right {
-  display: flex;
-  gap: 10px;
+  padding: 0;
 }
 
 .amount-display {
   font-size: 16px;
   font-weight: 600;
-  color: #409eff;
+  color: var(--ops-primary);
 }
 
 .fee-group + .fee-group {

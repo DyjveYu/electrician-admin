@@ -2,10 +2,11 @@
   <div class="referrer-applications-page">
     <div class="page-card">
       <!-- 页面标题 -->
+      <header class="page-heading"><h2>推荐达人申请审核</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>推荐达人申请审核</h2>
-          <el-button type="success" @click="handleGenerateQRCode" :loading="qrGenerating">
+
+          <el-button type="primary" @click="handleGenerateQRCode" :loading="qrGenerating">
             <el-icon><Picture /></el-icon>
             生成申请二维码
           </el-button>
@@ -13,7 +14,8 @@
       </div>
 
       <!-- 申请列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadList" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : '暂无数据'"
         v-loading="loading"
         :data="tableData"
         style="width: 100%"
@@ -21,7 +23,7 @@
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="name" label="申请人姓名" width="120" />
-        <el-table-column prop="phone" label="手机号" width="130" />
+        <el-table-column show-overflow-tooltip prop="phone" label="手机号" width="130" />
         <el-table-column prop="current_role" label="用户当前角色" width="120" align="center">
           <template #default="{ row }">
             <el-tag size="small" :type="roleTagType(row.current_role)">
@@ -84,7 +86,7 @@
     <el-dialog
       v-model="qrDialogVisible"
       title="推荐达人申请二维码"
-      width="400px"
+      width="min(400px, calc(100vw - 32px))"
       :close-on-click-modal="false"
     >
       <div class="qr-dialog-body">
@@ -109,6 +111,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Select, CloseBold, Picture, Loading } from '@element-plus/icons-vue'
@@ -124,7 +128,7 @@ const pagination = reactive({
 })
 
 const loadList = async () => {
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const res = await getReferrerApplications({
       page: pagination.page,
@@ -135,6 +139,7 @@ const loadList = async () => {
       pagination.total = res.data.total || 0
     }
   } catch (error) {
+    listError.value = tableData.value.length ? '刷新失败，当前显示上次加载的数据' : '列表加载失败，请重新加载'
     console.error('加载申请列表失败:', error)
   } finally {
     loading.value = false
@@ -262,36 +267,6 @@ onMounted(() => {
   height: 100%;
 }
 
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.table-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* 二维码弹窗 */
 .qr-dialog-body {
   text-align: center;
@@ -299,7 +274,7 @@ onMounted(() => {
 
 .qr-tip {
   margin-bottom: 20px;
-  color: #666;
+  color: var(--ops-muted);
   font-size: 14px;
 }
 
@@ -322,12 +297,12 @@ onMounted(() => {
   justify-content: center;
   gap: 8px;
   padding: 40px 0;
-  color: #999;
+  color: var(--ops-muted);
   font-size: 14px;
 }
 
 .qr-info {
-  color: #999;
+  color: var(--ops-muted);
   font-size: 12px;
   line-height: 1.6;
 }

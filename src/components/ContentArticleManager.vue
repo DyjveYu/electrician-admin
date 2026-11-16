@@ -4,7 +4,7 @@
     <el-alert title="排序：已设置的数值升序优先（0有效），未设置排在后面；同值按首次发布时间倒序，再按ID倒序。" type="info" :closable="false" />
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-button v-if="error" @click="loadList">重试</el-button>
-    <el-table v-loading="loading" :data="articles" empty-text="暂无文章" style="margin-top: 16px">
+    <el-table v-loading="loading" :data="articles" :empty-text="loading ? '正在加载…' : error ? '读取失败，请重新加载' : '暂无文章'" style="margin-top: 16px">
       <el-table-column prop="title" label="标题" min-width="220" />
       <el-table-column label="状态" width="90"><template #default="{ row }"><el-tag :type="row.status === 'published' ? 'success' : 'info'">{{ states[row.status] }}</el-tag></template></el-table-column>
       <el-table-column label="排序" width="85"><template #default="{ row }">{{ row.sort_order ?? '未设置' }}</template></el-table-column>
@@ -122,7 +122,7 @@ onMounted(loadList)
 <style scoped>
 .heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .heading h2 { margin: 0 0 8px; }
-.heading p { color: #606266; font-size: 14px; }
+.heading p { color: var(--ops-muted); font-size: 14px; }
 .el-pagination { margin-top: 20px; }
 .preview-title { overflow-wrap: anywhere; }
 </style>

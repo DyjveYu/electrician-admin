@@ -2,9 +2,10 @@
   <div class="non-five-star-orders-page">
     <div class="page-card">
       <!-- 页面标题和操作栏 -->
+      <header class="page-heading"><h2>非五星订单</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>非五星订单</h2>
+
           <el-input
             v-model="searchForm.keyword"
             placeholder="搜索工单号或描述"
@@ -42,20 +43,20 @@
       </div>
 
       <!-- 统计卡片 -->
-      <el-row :gutter="16" class="stats-row">
-        <el-col :span="8">
+      <el-row v-if="!loading && !listError" :gutter="16" class="stats-row">
+        <el-col :xs="24" :sm="8">
           <div class="stat-card">
             <div class="stat-number">{{ orderStats.total }}</div>
             <div class="stat-label">非五星订单总数</div>
           </div>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="8">
           <div class="stat-card warning">
             <div class="stat-number">{{ orderStats.pendingSecondReview }}</div>
             <div class="stat-label">待二次评价</div>
           </div>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="8">
           <div class="stat-card danger">
             <div class="stat-number">{{ orderStats.completedUnsettle }}</div>
             <div class="stat-label">已完成未结算</div>
@@ -64,12 +65,13 @@
       </el-row>
 
       <!-- 订单列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadOrderList" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(searchForm).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="orderList"
         style="width: 100%"
       >
-        <el-table-column prop="order_no" label="工单号" width="150" />
+        <el-table-column show-overflow-tooltip prop="order_no" label="工单号" width="150" />
 
         <el-table-column prop="order_type" label="工单类型" width="110">
           <template #default="{ row }">
@@ -118,7 +120,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="order_amount" label="订单金额" width="110">
+        <el-table-column align="right" prop="order_amount" label="订单金额" width="110">
           <template #default="{ row }">
             <span>¥{{ row._isProjectEntry ? (row.final_amount || row.proj_total_amount || 0) : (row.final_amount || 0) }}</span>
           </template>
@@ -167,7 +169,7 @@
     <el-dialog
       v-model="detailDialogVisible"
       title="工单详情"
-      width="1000px"
+      width="min(1000px, calc(100vw - 32px))"
     >
       <div v-if="currentOrder" class="order-detail">
         <el-row :gutter="24">
@@ -220,8 +222,8 @@
           <h4 style="margin-top: 16px">已招募电工（{{ currentOrder.electricians.length }}人）</h4>
           <el-table :data="currentOrder.electricians" size="small" max-height="300">
             <el-table-column prop="name" label="姓名" width="100" />
-            <el-table-column prop="workNo" label="工号" width="120" />
-            <el-table-column prop="phone" label="手机号" width="130" />
+            <el-table-column show-overflow-tooltip prop="workNo" label="工号" width="120" />
+            <el-table-column show-overflow-tooltip prop="phone" label="手机号" width="130" />
             <el-table-column prop="status" label="状态" width="110" align="center">
               <template #default="{ row }">
                 <el-tag :type="getProjectElectricianStatusTag(row.status)" size="small">
@@ -281,6 +283,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, onMounted } from 'vue'
 import { getNonFiveStarOrders, getOrderDetail } from '@/api/orders'
 import { ElMessage } from 'element-plus'
@@ -361,7 +365,7 @@ const formatDateTime = (dateString) => {
 }
 
 const loadOrderList = async () => {
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const params = {
       page: pagination.page,
@@ -385,6 +389,7 @@ const loadOrderList = async () => {
       orderList.value = []
     }
   } catch (error) {
+    listError.value = '列表加载失败，请重新加载'
     console.error('加载非五星订单列表失败:', error)
     ElMessage.error('加载非五星订单列表失败')
     orderList.value = []
@@ -442,43 +447,6 @@ onMounted(() => {
   padding: 0;
 }
 
-.table-toolbar {
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-}
-
-.stats-row {
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #fff;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-  transition: box-shadow 0.3s;
-}
-
 .stat-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -499,24 +467,6 @@ onMounted(() => {
   color: #f56c6c;
 }
 
-.stat-number {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1890ff;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #666;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-}
-
 .order-detail {
   padding: 16px 0;
 }
@@ -529,7 +479,7 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 500;
-  color: #333;
+  color: var(--ops-text);
 }
 
 .project-section {
@@ -540,16 +490,16 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 500;
-  color: #333;
+  color: var(--ops-text);
 }
 
 .text-muted {
-  color: #999;
+  color: var(--ops-muted);
 }
 
 .review-text {
   font-size: 12px;
-  color: #666;
+  color: var(--ops-muted);
   display: block;
   margin-top: 2px;
   overflow: hidden;

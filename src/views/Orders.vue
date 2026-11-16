@@ -2,9 +2,10 @@
   <div class="orders-page">
     <div class="page-card">
       <!-- 页面标题和操作栏 -->
+      <header class="page-heading"><h2>工单管理</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>工单管理</h2>
+
                     <el-select
             v-model="searchForm.orderType"
             placeholder="订单类型"
@@ -27,7 +28,7 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
-          
+
           <el-select
             v-model="searchForm.status"
             placeholder="工单状态"
@@ -53,8 +54,6 @@
             <el-option label="评价中" value="reviewing" />
           </el-select>
 
-
-
           <el-date-picker
             v-model="searchForm.dateRange"
             type="daterange"
@@ -64,18 +63,18 @@
             style="width: 240px"
             @change="handleSearch"
           />
-          
+
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
-          
+
           <el-button @click="handleReset">
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
         </div>
-        
+
         <div class="right">
           <el-button type="success" @click="handleExport">
             <el-icon><Download /></el-icon>
@@ -83,37 +82,39 @@
           </el-button>
         </div>
       </div>
-      
+
       <!-- 统计卡片 -->
-      <el-row :gutter="16" class="stats-row">
-        <el-col :span="6">
+      <LoadFeedback :message="statsError" @retry="loadStats" />
+      <el-row v-if="statsLoaded" :gutter="16" class="stats-row">
+        <el-col :xs="24" :sm="12" :lg="6">
           <div class="stat-card">
             <div class="stat-number">{{ orderStats.total }}</div>
             <div class="stat-label">总工单数</div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="24" :sm="12" :lg="6">
           <div class="stat-card">
             <div class="stat-number">{{ orderStats.pending }}</div>
             <div class="stat-label">待接单</div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="24" :sm="12" :lg="6">
           <div class="stat-card">
             <div class="stat-number">{{ orderStats.inProgress }}</div>
             <div class="stat-label">进行中</div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="24" :sm="12" :lg="6">
           <div class="stat-card">
             <div class="stat-number">{{ orderStats.completed }}</div>
             <div class="stat-label">已完成</div>
           </div>
         </el-col>
       </el-row>
-      
+
       <!-- 工单列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadOrderList" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(searchForm).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="orderList"
         style="width: 100%"
@@ -121,7 +122,7 @@
       >
         <el-table-column type="selection" width="55" />
 
-        <el-table-column prop="order_no" label="工单号" width="150" />
+        <el-table-column show-overflow-tooltip prop="order_no" label="工单号" width="150" />
 
         <el-table-column prop="order_type" label="订单类型" width="100" align="center">
           <template #default="{ row }">
@@ -180,7 +181,7 @@
             {{ row.completed_at ? formatDateTime(row.completed_at) : '-' }}
           </template>
         </el-table-column>
-        
+
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button
@@ -193,7 +194,7 @@
           </template>
         </el-table-column>
       </el-table>
-      
+
       <!-- 分页 -->
       <div class="pagination-wrapper">
         <el-pagination
@@ -207,12 +208,12 @@
         />
       </div>
     </div>
-    
+
     <!-- 工单详情对话框 -->
     <el-dialog
       v-model="detailDialogVisible"
       title="工单详情"
-      width="1000px"
+      width="min(1000px, calc(100vw - 32px))"
     >
       <div v-if="currentOrder" class="order-detail">
         <el-row :gutter="24">
@@ -253,7 +254,7 @@
               </el-descriptions-item>
             </el-descriptions>
           </el-col>
-          
+
           <el-col v-if="currentOrder.order_type !== 'enterprise_project'" :span="12">
             <el-descriptions title="状态信息" :column="1" border label-width="140px">
               <el-descriptions-item label="当前状态">
@@ -273,7 +274,7 @@
             </el-descriptions>
           </el-col>
         </el-row>
-        
+
         <!-- 多日工程专属信息 -->
         <div v-if="currentOrder.order_type === 'enterprise_project' && currentOrder.electricians" class="project-section">
           <h4>多日工程信息</h4>
@@ -289,8 +290,8 @@
           <h4 style="margin-top: 16px">已招募电工（{{ currentOrder.electricians.length }}人）</h4>
           <el-table :data="currentOrder.electricians" size="small" max-height="300">
             <el-table-column prop="name" label="姓名" width="100" />
-            <el-table-column prop="workNo" label="工号" width="120" />
-            <el-table-column prop="phone" label="手机号" width="130" />
+            <el-table-column show-overflow-tooltip prop="workNo" label="工号" width="120" />
+            <el-table-column show-overflow-tooltip prop="phone" label="手机号" width="130" />
             <el-table-column prop="status" label="状态" width="110" align="center">
               <template #default="{ row }">
                 <el-tag :type="getProjectElectricianStatusTag(row.status)" size="small">
@@ -343,7 +344,7 @@
             />
           </div>
         </div>
-        
+
         <!-- 维修记录 -->
         <div v-if="currentOrder.repair_description" class="repair-section">
           <h4>维修记录</h4>
@@ -353,7 +354,7 @@
             <el-descriptions-item label="维修费用">¥{{ currentOrder.repair_amount || 0 }}</el-descriptions-item>
           </el-descriptions>
         </div>
-        
+
         <!-- 评价信息（多日工程不显示，评价在已招募电工列表中） -->
         <div v-if="currentOrder.review && currentOrder.order_type !== 'enterprise_project'" class="review-section">
           <h4>用户评价</h4>
@@ -472,7 +473,7 @@
           </el-descriptions>
         </div>
       </div>
-      
+
       <template #footer>
         <div style="display:flex;justify-content:space-between;width:100%">
           <el-button
@@ -492,6 +493,9 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
+const statsLoaded = ref(false), statsError = ref('')
 import { ref, reactive, computed, onMounted } from 'vue'
 import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview } from '@/api/orders'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -613,7 +617,7 @@ const formatDateTime = (dateString) => {
 }
 
 const loadOrderList = async () => {
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const params = {
       page: pagination.page,
@@ -634,6 +638,7 @@ const loadOrderList = async () => {
       pagination.total = response.data.total
     }
   } catch (error) {
+    listError.value = '列表加载失败，请重新加载'
     console.error('加载工单列表失败:', error)
     ElMessage.error('加载工单列表失败: ' + error.message)
     orderList.value = []
@@ -644,13 +649,15 @@ const loadOrderList = async () => {
 
 // 加载统计数据
 const loadStats = async () => {
+  statsError.value = ''
   try {
     const response = await getStatistics()
     if (response.code === 200) {
       Object.assign(orderStats, response.data.orders || {})
+      statsLoaded.value = true
     }
   } catch (error) {
-    console.error('加载统计数据失败:', error)
+    statsError.value = statsLoaded.value ? '统计刷新失败，当前显示上次数据' : '统计加载失败，请重新加载'
   }
 }
 
@@ -757,7 +764,7 @@ const handleCancelOrder = async (order) => {
         type: 'warning'
       }
     )
-    
+
     const response = await updateOrderStatus(order.id, { status: 'cancelled' })
     if (response.code === 200) {
       ElMessage.success('工单已取消')
@@ -782,7 +789,7 @@ const handleForceComplete = async (order) => {
         type: 'warning'
       }
     )
-    
+
     const response = await updateOrderStatus(order.id, { status: 'completed' })
     if (response.code === 200) {
       ElMessage.success('工单已强制完成')
@@ -845,63 +852,8 @@ onMounted(() => {
   padding: 0;
 }
 
-.table-toolbar {
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-}
-
-.stats-row {
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: #fff;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-  transition: box-shadow 0.3s;
-}
-
 .stat-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.stat-number {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1890ff;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #666;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
 }
 
 .order-detail {
@@ -922,7 +874,7 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 500;
-  color: #333;
+  color: var(--ops-text);
 }
 
 .images-grid {
@@ -939,12 +891,12 @@ onMounted(() => {
 }
 
 .text-muted {
-  color: #999;
+  color: var(--ops-muted);
 }
 
 .review-text {
   font-size: 12px;
-  color: #666;
+  color: var(--ops-muted);
   display: block;
   margin-top: 2px;
   overflow: hidden;
@@ -966,7 +918,7 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 500;
-  color: #333;
+  color: var(--ops-text);
 }
 
 .finance-row {
@@ -1001,7 +953,7 @@ onMounted(() => {
 }
 
 .promoter-seg {
-  background: linear-gradient(135deg, #1890ff, #40a9ff);
+  background: linear-gradient(135deg, var(--ops-primary), #40a9ff);
 }
 
 .partner-seg {
@@ -1015,7 +967,7 @@ onMounted(() => {
 .amount-total {
   font-weight: 700;
   font-size: 16px;
-  color: #333;
+  color: var(--ops-text);
 }
 
 .amount-electrician {
@@ -1024,7 +976,7 @@ onMounted(() => {
 }
 
 .amount-promoter {
-  color: #1890ff;
+  color: var(--ops-primary);
   font-weight: 600;
 }
 
@@ -1047,7 +999,7 @@ onMounted(() => {
 }
 
 .promoter-tag {
-  color: #1890ff;
+  color: var(--ops-primary);
   background: #e6f7ff;
   border: 1px solid #91d5ff;
 }
@@ -1059,7 +1011,7 @@ onMounted(() => {
 }
 
 .none-tag {
-  color: #999;
+  color: var(--ops-muted);
   background: #f5f5f5;
   border: 1px solid #d9d9d9;
 }
@@ -1072,28 +1024,15 @@ onMounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .table-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .table-toolbar .left {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .table-toolbar .left h2 {
-    margin-bottom: 8px;
-  }
-  
+
   .stats-row .el-col {
     margin-bottom: 16px;
   }
-  
+
   .images-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
-  
+
   .order-image {
     width: 100px;
     height: 100px;

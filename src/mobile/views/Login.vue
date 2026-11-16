@@ -10,6 +10,7 @@
         <van-field
           v-model="form.username"
           name="username"
+          autocomplete="username"
           label="账号"
           placeholder="请输入管理员账号"
           :rules="[{ required: true, message: '请输入账号' }]"
@@ -19,6 +20,7 @@
           v-model="form.password"
           type="password"
           name="password"
+          autocomplete="current-password"
           label="密码"
           placeholder="请输入密码"
           :rules="[{ required: true, message: '请输入密码' }]"
@@ -79,47 +81,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.login-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 32px 0;
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 48px;
-}
-
-.title {
-  color: #fff;
-  font-size: 28px;
-  font-weight: 600;
-  margin: 0 0 8px;
-}
-
-.subtitle {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
-  margin: 0;
-}
-
-.login-form {
-  width: 100%;
-  max-width: 360px;
-}
-
-.login-btn-wrapper {
-  margin-top: 32px;
-  padding: 0 16px;
-}
-
-.error-msg {
-  color: #ff6b6b;
-  text-align: center;
-  font-size: 14px;
-  margin-top: 16px;
-}
+.login-page { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding: 32px 20px; background: var(--ops-bg); }
+.login-header { padding: 0 12px; margin-bottom: 32px; }
+.title { color: var(--ops-text); font-size: 26px; font-weight: 600; margin: 0 0 8px; }
+.subtitle { color: var(--ops-muted); font-size: 14px; margin: 0; }
+.login-form { background: white; border: 1px solid var(--ops-border); border-radius: 12px; padding: 24px 0; box-shadow: var(--ops-shadow); }
+.login-btn-wrapper { margin: 24px 16px 0; }
+.error-msg { color: var(--ops-danger); font-size: 13px; margin: 12px 16px 0; }
 </style>

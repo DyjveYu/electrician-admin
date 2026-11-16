@@ -2,9 +2,10 @@
   <div class="partners-page">
     <div class="page-card">
       <!-- 页面标题和搜索栏 -->
+      <header class="page-heading"><h2>合作伙伴管理</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>合作伙伴管理</h2>
+
           <el-input
             v-model="searchForm.keyword"
             placeholder="搜索姓名或工号"
@@ -38,14 +39,15 @@
       </div>
 
       <!-- 合作伙伴列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadList" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(searchForm).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="tableData"
         style="width: 100%"
       >
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="name" label="姓名" width="100" />
-        <el-table-column prop="workNo" label="工号" width="120" />
+        <el-table-column show-overflow-tooltip prop="workNo" label="工号" width="120" />
         <el-table-column label="负责区域" min-width="260">
           <template #default="{ row }">
             <el-tag
@@ -135,7 +137,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="600px"
+      width="min(600px, calc(100vw - 32px))"
       :close-on-click-modal="false"
       @close="handleDialogClose"
     >
@@ -227,7 +229,7 @@
     </el-dialog>
 
     <!-- 手动补算弹窗 -->
-    <el-dialog v-model="recalcVisible" title="手动补算" width="400px" :close-on-click-modal="false">
+    <el-dialog v-model="recalcVisible" title="手动补算" width="min(400px, calc(100vw - 32px))" :close-on-click-modal="false">
       <el-form :model="recalcForm" label-width="80px">
         <el-form-item label="统计月份">
           <el-input v-model="recalcForm.month" placeholder="如 202605，留空则补算上月" maxlength="6" />
@@ -242,6 +244,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete, Lock, Unlock, DataAnalysis } from '@element-plus/icons-vue'
@@ -271,7 +275,7 @@ const pagination = reactive({
 })
 
 const loadList = async () => {
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const res = await getPartnerList({
       page: pagination.page,
@@ -283,6 +287,7 @@ const loadList = async () => {
       pagination.total = res.data.total || 0
     }
   } catch (error) {
+    listError.value = tableData.value.length ? '刷新失败，当前显示上次加载的数据' : '列表加载失败，请重新加载'
     console.error('加载合作伙伴列表失败:', error)
   } finally {
     loading.value = false
@@ -629,46 +634,6 @@ onMounted(() => {
 <style scoped>
 .partners-page {
   height: 100%;
-}
-
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.table-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  white-space: nowrap;
-}
-
-.table-toolbar .right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .area-manager {

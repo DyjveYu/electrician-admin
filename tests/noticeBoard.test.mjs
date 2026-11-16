@@ -13,7 +13,7 @@ function runtime() {
     ref: value => ({ value }), reactive: value => value,
     onMounted: fn => { mounted = fn }, onUnmounted: fn => { unmount = fn },
     ElMessage: { error: text => calls.errors.push(text), success: text => calls.success.push(text) },
-    ElMessageBox: { confirm: async () => {} }, Plus: {},
+    ElMessageBox: { confirm: async () => {} }, Plus: {}, LoadFeedback: {},
     getMessages: async () => { calls.list.push(1); return { data: { messages: [], total: 0 } } },
     createMessage: async value => calls.create.push(value),
     updateMessage: async (id, value) => calls.update.push({ id, ...value }),

@@ -2,9 +2,10 @@
   <div class="electricians-page">
     <div class="page-card">
       <!-- 页面标题和操作栏 -->
+      <header class="page-heading"><h2>电工管理</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>电工管理</h2>
+
           <el-tag v-if="route.query.profileNotice" closable @close="clearNoticeFilter">{{ profileTypeText(route.query.profileNotice) }} · 未查看</el-tag>
           <el-input
             v-model="searchForm.keyword"
@@ -17,7 +18,7 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
-          
+
           <el-select
             v-model="searchForm.status"
             placeholder="认证状态"
@@ -61,29 +62,28 @@
           >
             <el-option v-for="d in districtOptions" :key="d" :label="d" :value="d" />
           </el-select>
-          
+
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
-          
+
           <el-button @click="handleReset">
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
         </div>
-        
+
       </div>
-      
+
       <!-- 电工列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="loadElectricianList" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(searchForm).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="electricianList"
         style="width: 100%"
       >
         <el-table-column prop="id" label="ID" width="80" />
-
-        
 
         <el-table-column label="资料提交" width="165">
           <template #default="{ row }">
@@ -98,7 +98,7 @@
 
         <el-table-column prop="real_name" label="姓名" width="100" />
 
-        <el-table-column prop="work_no" label="工号" width="120" />
+        <el-table-column show-overflow-tooltip prop="work_no" label="工号" width="120" />
 
         <el-table-column label="开始从业" width="110">
           <template #default="{ row }">{{ row.career_started_month || '未填写' }}</template>
@@ -133,7 +133,7 @@
             {{ row.updated_at ? formatDate(row.updated_at) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="login_phone" label="登录手机号" width="130" />
+        <el-table-column show-overflow-tooltip prop="login_phone" label="登录手机号" width="130" />
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button
@@ -164,7 +164,7 @@
           </template>
         </el-table-column>
       </el-table>
-      
+
       <!-- 分页 -->
       <div class="pagination-wrapper">
         <el-pagination
@@ -178,12 +178,12 @@
         />
       </div>
     </div>
-    
+
     <!-- 电工详情对话框 -->
     <el-dialog
       v-model="detailDialogVisible"
       title="电工详情"
-      width="800px"
+      width="min(800px, calc(100vw - 32px))"
     >
       <div v-if="detailLoading">正在读取电工详情…</div>
       <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
@@ -195,7 +195,7 @@
           <el-descriptions-item label="电工ID">{{ currentElectrician.id }}</el-descriptions-item>
           <el-descriptions-item label="资料提交">{{ profileTypeText(currentElectrician.profileChangeType) }}{{ currentElectrician.profileNoticePending ? ' · 未查看' : '' }}</el-descriptions-item>
           <el-descriptions-item label="认证／资料变更时间">{{ profileTime(currentElectrician.profileChangeTime) }}</el-descriptions-item>
-          
+
           <el-descriptions-item label="服务联系电话">{{ currentElectrician.service_phone }}</el-descriptions-item>
           <el-descriptions-item label="真实姓名">{{ currentElectrician.real_name }}</el-descriptions-item>
           <el-descriptions-item label="身份证号">{{ currentElectrician.id_card }}</el-descriptions-item>
@@ -225,7 +225,7 @@
             {{ currentElectrician.reject_reason || '无' }}
           </el-descriptions-item>
         </el-descriptions>
-        
+
         <!-- 证件照片 -->
         <div v-if="currentElectrician.id_card_front || currentElectrician.id_card_back || currentElectrician.licenses?.length" class="photos-section">
           <h4>证件照片</h4>
@@ -235,21 +235,21 @@
               <el-image
                 :src="currentElectrician.id_card_front"
                 :preview-src-list="[currentElectrician.id_card_front]"
-                fit="cover"
+                fit="contain"
                 class="photo"
               />
             </div>
-            
+
             <div v-if="currentElectrician.id_card_back" class="photo-item">
               <p>身份证背面</p>
               <el-image
                 :src="currentElectrician.id_card_back"
                 :preview-src-list="[currentElectrician.id_card_back]"
-                fit="cover"
+                fit="contain"
                 class="photo"
               />
             </div>
-            
+
             <div v-for="license in currentElectrician.licenses" :key="license.license_type" class="photo-item">
               <p>{{ license.label }}</p>
               <p>证号 {{ license.certificate_number || '未记录' }}</p>
@@ -258,14 +258,14 @@
                 v-if="license.photo_url"
                 :src="license.photo_url"
                 :preview-src-list="[license.photo_url]"
-                fit="cover"
+                fit="contain"
                 class="photo"
               />
             </div>
           </div>
         </div>
       </div>
-      
+
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="detailDialogVisible = false">关闭</el-button>
@@ -274,11 +274,13 @@
       </template>
     </el-dialog>
     <RegionChangeReview v-model="regionReviewVisible" :change-id="regionReviewId" :api="regionReviewApi" @reviewed="handleRegionReviewed" />
-    
+
   </div>
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { profileTypeText, profileTime } from '@/utils/electricianProfileNotice'
@@ -351,7 +353,7 @@ const maskIdCard = (idCard) => {
 
 const loadElectricianList = async () => {
   const request = ++listRequest
-  loading.value = true
+  loading.value = true; listError.value = ''
   try {
     const params = {
       page: pagination.page,
@@ -384,6 +386,7 @@ const loadElectricianList = async () => {
     }
   } catch (error) {
     if (!pageActive || request !== listRequest) return
+    listError.value = '列表加载失败，请重新加载'
     console.error('加载电工列表失败:', error)
     ElMessage.error('网络错误，请稍后重试')
     electricianList.value = []
@@ -512,41 +515,6 @@ onUnmounted(() => { pageActive = false; listRequest++ })
   padding: 0;
 }
 
-.table-toolbar {
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-}
-
-.table-toolbar .right {
-  display: flex;
-  gap: 12px;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-}
-
 .electrician-detail {
   padding: 16px 0;
 }
@@ -559,7 +527,7 @@ onUnmounted(() => { pageActive = false; listRequest++ })
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 500;
-  color: #333;
+  color: var(--ops-text);
 }
 
 .photos-grid {
@@ -575,7 +543,7 @@ onUnmounted(() => { pageActive = false; listRequest++ })
 .photo-item p {
   margin: 0 0 8px 0;
   font-size: 14px;
-  color: #666;
+  color: var(--ops-muted);
 }
 
 .photo {
@@ -597,24 +565,7 @@ onUnmounted(() => { pageActive = false; listRequest++ })
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .table-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .table-toolbar .left {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .table-toolbar .left h2 {
-    margin-bottom: 8px;
-  }
-  
-  .table-toolbar .right {
-    justify-content: flex-start;
-  }
-  
+
   .photos-grid {
     grid-template-columns: 1fr;
   }

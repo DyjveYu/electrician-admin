@@ -20,10 +20,13 @@
       <van-tab title="未通过" name="rejected" />
     </van-tabs>
 
+    <LoadFeedback :message="loadError" :loading="loading" @retry="fetchList" />
     <!-- 列表 -->
     <van-list
       v-model:loading="loading"
       :finished="finished"
+      :error="!!loadError"
+      error-text="加载失败，请点击上方重新加载"
       finished-text="没有更多了"
       @load="onLoad"
       :immediate-check="false"
@@ -93,13 +96,13 @@
           >
             解冻
           </van-button>
-          <van-button size="small" round @click.stop="goDetail(item)">
+          <van-button type="primary" plain size="small" round @click.stop="goDetail(item)">
             详情
           </van-button>
         </div>
       </div>
 
-      <div v-if="!loading && !finished && list.length === 0" class="empty-state">
+      <div v-if="!loading && !loadError && finished && list.length === 0" class="empty-state">
         <van-icon name="info-o" size="48" color="#ccc" />
         <p>暂无数据</p>
       </div>
@@ -108,6 +111,7 @@
 </template>
 
 <script setup>
+import LoadFeedback from '../../components/LoadFeedback.vue'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { profileTypeText, profileTime } from '../../utils/electricianProfileNotice'
 import { useRouter } from 'vue-router'
@@ -117,6 +121,8 @@ import { getElectricianList, banElectrician, unbanElectrician } from '../api/ele
 const router = useRouter()
 
 const list = ref([])
+const loadError = ref('')
+let retryPage = null
 const loading = ref(false)
 const finished = ref(false)
 const keyword = ref('')
@@ -141,7 +147,7 @@ function formatDate(dateStr) {
 
 async function fetchList() {
   const request = ++listRequest, page = pagination.value.page
-  loading.value = true
+  loading.value = true; loadError.value = ''
   try {
     const params = {
       page: pagination.value.page,
@@ -153,6 +159,7 @@ async function fetchList() {
     const res = await getElectricianList(params)
     if (!pageActive || request !== listRequest) return
     if (res.code === 200) {
+      retryPage = null
       const newList = res.data.list || []
       list.value = page === 1 ? newList : [...list.value, ...newList]
       pagination.value.total = res.data.total || 0
@@ -161,7 +168,7 @@ async function fetchList() {
       showToast(res.message || '加载失败')
     }
   } catch {
-    if (pageActive && request === listRequest) showToast('网络错误')
+    if (pageActive && request === listRequest) { loadError.value = '列表加载失败，请重新加载'; retryPage = page }
   } finally {
     if (pageActive && request === listRequest) loading.value = false
   }
@@ -169,12 +176,14 @@ async function fetchList() {
 
 function onLoad() {
   if (!finished.value) {
-    pagination.value.page++
+    if (retryPage != null) pagination.value.page = retryPage
+    else pagination.value.page++
     fetchList()
   }
 }
 
 function onSearch() {
+  retryPage = null
   pagination.value.page = 1
   finished.value = false
   list.value = []
@@ -182,6 +191,7 @@ function onSearch() {
 }
 
 function onTabChange() {
+  retryPage = null
   pagination.value.page = 1
   finished.value = false
   list.value = []
@@ -225,60 +235,14 @@ onUnmounted(() => { pageActive = false; listRequest++ })
 </script>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: #f7f8fa;
-}
-
-.card {
-  background: #fff;
-  margin: 8px 12px;
-  border-radius: 8px;
-  padding: 12px 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.card-header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.name {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-}
-
-.card-body {
-  font-size: 13px;
-  color: #666;
-  line-height: 1.8;
-}
-
-.info-row .label {
-  color: #999;
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 80px 0;
-  color: #999;
-}
+.card { background: white; margin: 12px 16px; border: 1px solid var(--ops-border); border-radius: 10px; padding: 16px; box-shadow: var(--ops-shadow); }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.card-header-left { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.name { width: 100%; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; color: var(--ops-text); margin-bottom: 4px; }
+.card-body { display: grid; gap: 7px; }
+.info-row { display: flex; gap: 8px; font-size: 13px; line-height: 1.6; }
+.info-row > :last-child { min-width: 0; overflow-wrap: anywhere; }
+.label { flex: 0 0 78px; color: var(--ops-muted); }
+.card-actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--ops-border); padding-top: 12px; margin-top: 16px; }
+.empty-state { padding: 48px 24px; text-align: center; color: var(--ops-muted); }
 </style>

@@ -8,6 +8,9 @@ import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import App from './App.vue'
 import router from './router'
 import './style.css'
+import './styles/theme.css'
+
+document.documentElement.classList.add('desktop-admin')
 
 const app = createApp(App)
 

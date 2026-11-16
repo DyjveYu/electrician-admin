@@ -2,9 +2,10 @@
   <div class="enterprises-page">
     <div class="page-card">
       <!-- 页面标题和搜索栏 -->
+      <header class="page-heading"><h2>企业用户管理</h2></header>
       <div class="table-toolbar">
         <div class="left">
-          <h2>企业用户管理</h2>
+
           <el-tag v-if="route.query.profileNotice" closable @close="clearNoticeFilter">{{ profileTypeText(route.query.profileNotice) }} · 未查看</el-tag>
           <el-input
             v-model="searchForm.keyword"
@@ -29,7 +30,8 @@
       </div>
 
       <!-- 企业用户列表表格 -->
-      <el-table
+      <LoadFeedback :message="listError" :loading="loading" @retry="fetchList" />
+      <el-table :empty-text="loading ? '正在加载…' : listError ? '读取失败，请重新加载' : (Object.values(searchForm).some(value => value !== '' && value != null && (!Array.isArray(value) || value.length))) ? '未找到符合条件的数据' : '暂无数据'"
         v-loading="loading"
         :data="tableData"
         style="width: 100%"
@@ -46,7 +48,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="contactName" label="联系人" width="100" />
-        <el-table-column prop="contactPhone" label="手机号" width="130" />
+        <el-table-column show-overflow-tooltip prop="contactPhone" label="手机号" width="130" />
         <el-table-column prop="certStatus" label="认证状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="certStatusType(row.certStatus)" size="small">
@@ -148,11 +150,12 @@
     <el-dialog
       v-model="ordersDialogVisible"
       title="企业工单列表"
-      width="1300px"
+      width="min(1300px, calc(100vw - 32px))"
       destroy-on-close
     >
-      <el-table :data="ordersData" v-loading="ordersLoading" max-height="500">
-        <el-table-column prop="orderNo" label="工单号" width="200" />
+      <LoadFeedback :message="ordersError" :loading="ordersLoading" @retry="fetchOrders" />
+      <el-table :empty-text="ordersError ? '读取失败，请重新加载' : '暂无工单'" :data="ordersData" v-loading="ordersLoading" max-height="500">
+        <el-table-column show-overflow-tooltip prop="orderNo" label="工单号" width="200" />
         <el-table-column prop="orderType" label="工单类型" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="orderTypeTag(row.orderType)" size="small">
@@ -214,6 +217,8 @@
 </template>
 
 <script setup>
+import LoadFeedback from '@/components/LoadFeedback.vue'
+const listError = ref('')
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -244,7 +249,7 @@ const total = ref(0);
 // 获取列表
 const fetchList = async () => {
   const generation = ++listGeneration;
-  loading.value = true;
+  loading.value = true; listError.value = '';
   try {
     const res = await request.get('/admin/enterprises', {
       params: {
@@ -261,6 +266,7 @@ const fetchList = async () => {
     }
     return false;
   } catch (err) {
+    if (pageActive && generation === listGeneration) listError.value = tableData.value.length ? '刷新失败，当前显示上次加载的数据' : '列表加载失败，请重新加载';
     console.error('获取企业列表失败:', err);
     return false;
   } finally {
@@ -420,6 +426,7 @@ onBeforeUnmount(() => { pageActive = false; listGeneration++; profileGeneration+
 const ordersDialogVisible = ref(false);
 const ordersData = ref([]);
 const ordersLoading = ref(false);
+const ordersError = ref('');
 const ordersTotal = ref(0);
 const currentEnterpriseId = ref(null);
 const ordersPagination = reactive({ page: 1, pageSize: 20 });
@@ -432,7 +439,7 @@ const viewOrders = (row) => {
 };
 
 const fetchOrders = async () => {
-  ordersLoading.value = true;
+  ordersLoading.value = true; ordersError.value = '';
   try {
     const res = await request.get(`/admin/enterprises/${currentEnterpriseId.value}/orders`, {
       params: { page: ordersPagination.page, pageSize: ordersPagination.pageSize }
@@ -442,6 +449,7 @@ const fetchOrders = async () => {
       ordersTotal.value = res.data.total || 0;
     }
   } catch (err) {
+    ordersError.value = ordersData.value.length ? '刷新失败，当前显示上次加载的数据' : '工单加载失败，请重新加载';
     console.error('获取工单列表失败:', err);
   } finally {
     ordersLoading.value = false;
@@ -534,37 +542,7 @@ onMounted(() => {
 
 <style scoped>
 .enterprises-page {
-  padding: 20px;
+  padding: 0;
 }
 
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 24px;
-}
-
-.table-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.table-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.table-toolbar .left h2 {
-  margin: 0;
-  font-size: 18px;
-  white-space: nowrap;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
 </style>

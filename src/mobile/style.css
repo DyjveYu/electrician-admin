@@ -1,0 +1,30 @@
+.mobile-admin {
+  --van-primary-color: var(--ops-primary); --van-success-color: var(--ops-success);
+  --van-warning-color: var(--ops-warning); --van-danger-color: var(--ops-danger);
+  --van-text-color: var(--ops-text); --van-text-color-2: var(--ops-muted);
+  --van-background: var(--ops-bg); --van-nav-bar-title-font-size: 18px;
+  --van-nav-bar-height: 56px; --van-tabs-bottom-bar-color: var(--ops-primary);
+  --van-button-border-radius: 8px; --van-button-round-border-radius: 8px;
+  --van-cell-group-inset-border-radius: 10px; --van-cell-font-size: 14px;
+}
+.mobile-admin .page { min-height: 100dvh; background: var(--ops-bg); padding-bottom: env(safe-area-inset-bottom); }
+.mobile-admin .van-nav-bar { padding-top: env(safe-area-inset-top); }
+.mobile-admin .van-nav-bar__title { font-weight: 600; }
+.mobile-admin .van-nav-bar__left, .mobile-admin .van-nav-bar__right { min-width: 44px; }
+.mobile-admin .van-search { background: white; padding: 12px 16px; }
+.mobile-admin .van-search__content { background: var(--ops-bg); border-radius: 8px; }
+.mobile-admin .van-tabs__nav { padding-left: 8px; padding-right: 8px; }
+.mobile-admin .van-tab { min-height: 44px; }
+.mobile-admin .van-tag { white-space: normal; line-height: 1.5; max-width: 100%; }
+.mobile-admin .van-cell-group__title { font-size: 14px; font-weight: 600; color: var(--ops-text); padding-top: 24px; }
+.mobile-admin .van-cell-group--inset { border: 1px solid var(--ops-border); }
+.mobile-admin .van-cell { padding-top: 13px; padding-bottom: 13px; }
+.mobile-admin .van-cell__title { flex: 0 0 112px; color: var(--ops-muted); }
+.mobile-admin .van-cell__value { overflow-wrap: anywhere; color: var(--ops-text); }
+.mobile-admin .van-cell__value .van-tag { margin: 2px; }
+.mobile-admin .van-button { min-height: 44px; }
+.mobile-admin .van-button--round { border-radius: 8px; }
+.mobile-admin .load-feedback { margin: 12px 16px; }
+.mobile-admin .load-feedback button, .mobile-admin .el-dialog .el-button { min-height: 44px; }
+.mobile-admin .el-dialog__body { line-height: 1.7; }
+.mobile-admin .el-image-viewer__close { top: max(24px, env(safe-area-inset-top)); }
