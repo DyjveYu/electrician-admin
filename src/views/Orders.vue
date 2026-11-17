@@ -226,6 +226,11 @@
                 <el-tag v-else type="info" size="small">个人快修</el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="服务类型">{{ currentOrder.service_type_name || currentOrder.serviceType?.name }}</el-descriptions-item>
+              <template v-if="currentOrder.order_type === 'personal_quick'">
+                <el-descriptions-item label="服务方式">{{ ({ on_site: '上门服务', off_site: '不上门服务' })[currentOrder.service_mode] || '未记录' }}</el-descriptions-item>
+                <el-descriptions-item label="用电类型">{{ ({ residential: '居民用电', industrial: '工商业用电' })[currentOrder.electricity_type] || '未记录' }}</el-descriptions-item>
+                <el-descriptions-item label="所需资质">{{ ({ low_voltage: '低压电工', high_voltage: '高压电工', construction: '建筑电工' })[currentOrder.required_cert_type] || '未记录' }}</el-descriptions-item>
+              </template>
               <el-descriptions-item label="问题描述">{{ currentOrder.description }}</el-descriptions-item>
               <el-descriptions-item label="服务地址">{{ currentOrder.address?.detail_address || currentOrder.service_address || '-' }}</el-descriptions-item>
               <el-descriptions-item label="联系人">{{ currentOrder.contact_name }}</el-descriptions-item>
