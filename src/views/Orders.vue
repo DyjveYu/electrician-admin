@@ -226,10 +226,10 @@
                 <el-tag v-else type="info" size="small">个人快修</el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="服务类型">{{ currentOrder.service_type_name || currentOrder.serviceType?.name }}</el-descriptions-item>
-              <template v-if="currentOrder.order_type === 'personal_quick' || (currentOrder.order_type === 'enterprise_quick' && (currentOrder.service_mode != null || currentOrder.required_cert_type != null))">
+              <template v-if="currentOrder.order_type === 'personal_quick' || (['enterprise_quick', 'enterprise_project'].includes(currentOrder.order_type) && (currentOrder.service_mode != null || currentOrder.required_cert_type != null))">
                 <el-descriptions-item label="服务方式">{{ ({ on_site: '上门服务', off_site: '不上门服务' })[currentOrder.service_mode] || '未记录' }}</el-descriptions-item>
                 <el-descriptions-item v-if="currentOrder.order_type === 'personal_quick'" label="用电类型">{{ ({ residential: '居民用电', industrial: '工商业用电' })[currentOrder.electricity_type] || '未记录' }}</el-descriptions-item>
-                <el-descriptions-item label="所需资质">{{ ({ low_voltage: '低压电工', high_voltage: '高压电工', construction: '建筑电工' })[currentOrder.required_cert_type] || '未记录' }}</el-descriptions-item>
+                <el-descriptions-item label="所需资质">{{ certificateOptionsLabel(currentOrder) }}</el-descriptions-item>
               </template>
               <el-descriptions-item label="问题描述">{{ currentOrder.description }}</el-descriptions-item>
               <el-descriptions-item label="服务地址">{{ currentOrder.address?.detail_address || currentOrder.service_address || '-' }}</el-descriptions-item>
@@ -289,7 +289,7 @@
             <el-descriptions-item label="平台服务费(15%)">¥{{ currentOrder.platformFee }}</el-descriptions-item>
             <el-descriptions-item label="工程费(85%)">¥{{ currentOrder.projectFee }}</el-descriptions-item>
             <el-descriptions-item label="电工费用/人">¥{{ currentOrder.electricianFee }}</el-descriptions-item>
-            <el-descriptions-item label="工程时间">{{ currentOrder.proj_start_time ? formatDateTime(currentOrder.proj_start_time) : '-' }} 至 {{ currentOrder.proj_end_time ? formatDateTime(currentOrder.proj_end_time) : '-' }}</el-descriptions-item>
+            <el-descriptions-item label="工程时间">{{ currentOrder.service_mode != null || currentOrder.required_cert_type != null ? formatProjectDate(currentOrder.proj_start_time) : (currentOrder.proj_start_time ? formatDateTime(currentOrder.proj_start_time) : '-') }} 至 {{ currentOrder.service_mode != null || currentOrder.required_cert_type != null ? formatProjectDate(currentOrder.proj_end_time) : (currentOrder.proj_end_time ? formatDateTime(currentOrder.proj_end_time) : '-') }}</el-descriptions-item>
           </el-descriptions>
 
           <h4 style="margin-top: 16px">已招募电工（{{ currentOrder.electricians.length }}人）</h4>
@@ -498,6 +498,19 @@
 </template>
 
 <script setup>
+const certificateOptionsLabel = order => {
+  const names = { low_voltage: '低压电工', high_voltage: '高压电工', construction: '建筑电工' }
+  const values = typeof order.required_cert_type === 'string' ? order.required_cert_type.split(',') : []
+  if (!values.length || ['low_voltage', 'high_voltage', 'construction'].filter(v => values.includes(v)).join(',') !== order.required_cert_type || (order.order_type === 'personal_quick' && values.length !== 1)) return '未记录'
+  return values.map(v => names[v]).join(' / ')
+}
+const formatProjectDate = value => {
+  if (!value) return '-'
+  if (typeof value === 'string' && !/[TZ]|[+-]\d{2}:?\d{2}$/.test(value)) return value.slice(0, 10).replace('-', '年').replace('-', '月') + '日'
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date) : '-'
+}
+
 import LoadFeedback from '@/components/LoadFeedback.vue'
 const listError = ref('')
 const statsLoaded = ref(false), statsError = ref('')
