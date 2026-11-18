@@ -57,6 +57,7 @@
         <el-table-column align="right" prop="amount" label="金额" width="100">
           <template #default="{ row }">
             ¥{{ row.amount }}
+            <el-tag v-if="row.isTestPayment" type="warning" size="small">测试模拟</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
@@ -123,6 +124,7 @@
       width="min(500px, calc(100vw - 32px))"
     >
       <el-descriptions v-if="currentDeposit" :column="2" border>
+        <el-descriptions-item v-if="currentDeposit.isTestPayment" label="记录类型" :span="2"><el-tag type="warning">测试模拟，不发生真实扣款／退款</el-tag></el-descriptions-item>
         <el-descriptions-item label="押金ID">{{ currentDeposit.id }}</el-descriptions-item>
         <el-descriptions-item label="电工ID">{{ currentDeposit.electricianId }}</el-descriptions-item>
         <el-descriptions-item label="电工手机">{{ currentDeposit.electricianPhone || '-' }}</el-descriptions-item>
@@ -151,6 +153,7 @@
       width="min(400px, calc(100vw - 32px))"
     >
       <el-form :model="refundForm" label-width="80px">
+        <el-alert v-if="currentDeposit?.isTestPayment" title="此为测试押金，批准后仅模拟退回，不发起微信退款。" type="warning" :closable="false" />
         <el-form-item label="押金ID">{{ currentDeposit?.id }}</el-form-item>
         <el-form-item label="退款金额">¥{{ currentDeposit?.amount }}</el-form-item>
         <el-form-item label="操作">

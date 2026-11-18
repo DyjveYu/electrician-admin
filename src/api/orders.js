@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+export const checkOffsiteRefund = (id, action = 'query') => request({ url: `/admin/orders/${id}/offsite/refund`, method: 'post', data: { action } })
 
 // 获取工单列表
 export const getOrderList = (params) => {

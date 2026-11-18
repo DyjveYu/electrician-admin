@@ -43,6 +43,7 @@
             <el-option label="维修中" value="in_progress" />
             <el-option label="待评价" value="pending_review" />
             <el-option label="待二次评价" value="pending_second_review" />
+            <el-option label="待押金退回后结算" value="pending_deposit_refund" />
             <el-option label="已完成已支付" value="completed_settled" />
             <el-option label="已完成未支付" value="completed_unsettle" />
             <el-option label="支付失败" value="completed_settle_failed" />
@@ -158,6 +159,9 @@
           </template>
         </el-table-column>
 
+        <el-table-column label="不上门款项" min-width="180">
+          <template #default="{ row }"><div v-if="row.offsite_finance">押金¥200 · {{ offsiteRefundText(row.offsite_finance.refundState) }}<br>工费{{ row.offsite_finance.feeAmount > 0 ? '¥' + Number(row.offsite_finance.feeAmount).toFixed(2) : '待确认' }}</div><span v-else>—</span></template>
+        </el-table-column>
         <el-table-column prop="description" label="服务描述" width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <span>{{ row.description || '-' }}</span>
@@ -216,6 +220,22 @@
       width="min(1000px, calc(100vw - 32px))"
     >
       <div v-if="currentOrder" class="order-detail">
+        <div v-if="currentOrder.offsite_finance" class="page-card">
+          <h3>不上门服务 · 固定订单押金</h3>
+          <el-alert v-if="currentOrder.offsite_finance.feePaymentReview || currentOrder.offsite_finance.depositReviewRequired" title="原款项已收到，订单版本或状态需人工核对，请勿要求用户再次支付。" type="warning" :closable="false" />
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="订单押金">¥200.00 · {{ currentOrder.offsite_finance.depositPaid ? '已支付' : '待支付' }}</el-descriptions-item>
+            <el-descriptions-item label="押金原路退款">{{ offsiteRefundText(currentOrder.offsite_finance.refundState) }}</el-descriptions-item>
+            <el-descriptions-item label="另付工费（含15%平台费）">{{ currentOrder.offsite_finance.feeAmount > 0 ? '¥' + Number(currentOrder.offsite_finance.feeAmount).toFixed(2) : '待双方确认' }}</el-descriptions-item>
+            <el-descriptions-item label="工费实付">{{ currentOrder.offsite_finance.feePaid ? '已支付' : '未确认支付' }}</el-descriptions-item>
+            <el-descriptions-item label="结算进度">{{ offsiteSettlementText(currentOrder.offsite_finance.settlementStage) }}</el-descriptions-item>
+            <el-descriptions-item label="电工应得85%">¥{{ Number(currentOrder.offsite_finance.electricianAmount).toFixed(2) }}</el-descriptions-item>
+            <el-descriptions-item label="平台毛额">¥{{ Number(currentOrder.offsite_finance.platformAmount).toFixed(2) }}（佣金从中分出）</el-descriptions-item>
+          </el-descriptions>
+          <p>订单押金全退，不抵扣工费，不计入收入或佣金；退款处理中不能视为已经退回。</p>
+          <el-button :loading="offsiteChecking" @click="handleOffsiteRefund('query')">核对原押金退款</el-button>
+          <el-button v-if="currentOrder.offsite_finance.refundState === 'failed'" :loading="offsiteChecking" @click="handleOffsiteRefund('retry')">重试明确失败的原退款</el-button>
+        </div>
         <el-row :gutter="24">
           <el-col :span="24">
             <el-descriptions title="基本信息" :column="1" border label-width="140px">
@@ -241,16 +261,16 @@
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item v-if="currentOrder.order_type !== 'enterprise_project'" label="预约时间">{{ currentOrder.appointment_time ? formatDateTime(currentOrder.appointment_time) : '随时' }}</el-descriptions-item>
-              <el-descriptions-item v-if="currentOrder.order_type !== 'enterprise_project'" label="预付款金额">
+              <el-descriptions-item v-if="!currentOrder.offsite_finance && currentOrder.order_type !== 'enterprise_project'" label="预付款金额">
                 <span v-if="currentOrder.prepay_amount">¥{{ currentOrder.prepay_amount }}</span>
                 <span v-else-if="currentOrder.amount">¥{{ currentOrder.amount }}</span>
                 <span v-else class="text-muted">-</span>
               </el-descriptions-item>
-              <el-descriptions-item v-if="currentOrder.order_type !== 'enterprise_project'" label="维修金额">
+              <el-descriptions-item v-if="!currentOrder.offsite_finance && currentOrder.order_type !== 'enterprise_project'" label="维修金额">
                 <span v-if="currentOrder.final_amount || currentOrder.repair_amount">¥{{ currentOrder.final_amount || currentOrder.repair_amount }}</span>
                 <span v-else class="text-muted">-</span>
               </el-descriptions-item>
-              <el-descriptions-item v-if="currentOrder.order_type !== 'enterprise_project'" label="总金额">
+              <el-descriptions-item v-if="!currentOrder.offsite_finance && currentOrder.order_type !== 'enterprise_project'" label="总金额">
                 <span v-if="currentOrder.prepay_amount && (currentOrder.final_amount || currentOrder.repair_amount)">
                   ¥{{ (Number(currentOrder.prepay_amount) + Number(currentOrder.final_amount || currentOrder.repair_amount)).toFixed(2) }}
                 </span>
@@ -515,7 +535,7 @@ import LoadFeedback from '@/components/LoadFeedback.vue'
 const listError = ref('')
 const statsLoaded = ref(false), statsError = ref('')
 import { ref, reactive, computed, onMounted } from 'vue'
-import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview } from '@/api/orders'
+import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview, checkOffsiteRefund } from '@/api/orders'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
@@ -523,6 +543,24 @@ const orderList = ref([])
 const selectedOrders = ref([])
 const detailDialogVisible = ref(false)
 const currentOrder = ref(null)
+const offsiteChecking = ref(false)
+const offsiteRefundText = state => ({ not_due: '工费支付后全退', pending: '待退款', processing: '退款处理中', success: '押金已退回', failed: '明确失败', unknown: '结果待核对' })[state] || '待核对'
+const offsiteSettlementText = state => ({ not_due: '尚未结算', waiting_review: '等待评价', waiting_refund: '等待押金退回', waiting_time: '等待五星后24小时', ready: '已满足结算条件', unsettled: '已完成不结算', needs_review: '资金状态需人工核对' })[state] || '待核对'
+const handleOffsiteRefund = async action => {
+  if (offsiteChecking.value || !currentOrder.value) return
+  const id = currentOrder.value.id
+  if (action === 'retry') {
+    try { await ElMessageBox.confirm('仅重试原退款单，不新建第二笔退款。确认继续？', '退款核对', { type: 'warning' }) } catch { return }
+  }
+  offsiteChecking.value = true
+  try {
+    await checkOffsiteRefund(id, action)
+    const response = await getOrderDetail(id)
+    if (currentOrder.value?.id === id) currentOrder.value = response.data
+    ElMessage.success('已核对，请查看真实退款状态')
+  } catch (error) { ElMessage.error(error.message || '退款结果未确认，请稍后核对') }
+  finally { offsiteChecking.value = false }
+}
 const triggeringReview = ref(false)
 
 const searchForm = reactive({
@@ -553,6 +591,7 @@ const getStatusTagType = (status) => {
     'pending_repair_payment': 'info', // 待支付维修费
     'in_progress': 'primary',        // 维修中
     'pending_review': 'warning',     // 待评价
+    'pending_deposit_refund': 'warning',
     'pending_second_review': 'warning', // 待二次评价
     'completed_settled': 'success',  // 已完成已支付电工费用
     'completed_unsettle': 'warning', // 已完成未支付电工费用
@@ -575,6 +614,7 @@ const getStatusText = (status) => {
     'pending_repair_payment': '待支付维修费',
     'in_progress': '维修中',
     'pending_review': '待评价',
+    'pending_deposit_refund': '待押金退回后结算',
     'pending_second_review': '待二次评价',
     'completed_settled': '已完成已支付',
     'completed_unsettle': '已完成未支付',
@@ -593,6 +633,7 @@ const getProjectElectricianStatusText = (status) => {
   const map = {
     in_progress: '施工中',
     pending_review: '待评价',
+    pending_deposit_refund: '待押金退回后结算',
     pending_second_review: '待二次评价',
     completed_settled: '已结算',
     completed_unsettle: '未结算'
@@ -604,6 +645,7 @@ const getProjectElectricianStatusTag = (status) => {
   const map = {
     in_progress: '',
     pending_review: 'warning',
+    pending_deposit_refund: 'warning',
     pending_second_review: 'warning',
     completed_settled: 'success',
     completed_unsettle: 'danger'
@@ -834,10 +876,10 @@ const orderFinance = computed(() => {
   const order = currentOrder.value
   if (!order) return { totalAmount: 0, electricianAmount: 0, promoterAmount: 0, partnerAmount: 0, platformAmount: 0, platformPct: 15 }
 
-  const prepay = Number(order.prepay_amount || 0)
+  const prepay = order.offsite_finance ? 0 : Number(order.prepay_amount || 0)
   const finalAmt = Number(order.final_amount || order.repair_amount || 0)
   const totalAmount = prepay + finalAmt
-  const electricianAmount = Number((totalAmount * 0.85).toFixed(2))
+  const electricianAmount = order.offsite_finance ? Number(order.offsite_finance.electricianAmount) : Number((totalAmount * 0.85).toFixed(2))
 
   // 根据实际佣金记录区分推荐达人/合作伙伴
   const hasCommission = order.commission_amount != null
