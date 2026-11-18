@@ -225,6 +225,16 @@
       width="min(1000px, calc(100vw - 32px))"
     >
       <div v-if="currentOrder" class="order-detail">
+        <div v-if="currentOrder.project_billing" class="page-card">
+          <h3>企业多人不上门工程</h3>
+          <p>订单押金 ¥{{ currentOrder.project_billing.deposit }} · {{ offsiteRefundText(currentOrder.project_billing.refund) }}</p>
+          <p>整单工费 {{ currentOrder.project_billing.fee || '待确认' }} · {{ currentOrder.project_billing.paid ? '已付' : '未付' }}</p>
+          <p v-if="currentOrder.project_billing.paid">电工应得合计 ¥{{ projectAmounts.shares }} · 已入账 ¥{{ projectAmounts.settled }} · 平台份额 ¥{{ projectAmounts.platform }}</p>
+          <p v-for="member in currentOrder.project_billing.members" :key="member.worker">电工 {{member.worker}} · {{member.note || '待交付'}} · 应得 {{member.share ?? '待确认'}} · {{member.settled ? '已入账' : '未入账'}}</p>
+          <el-button v-if="currentOrder.project_billing.refund === 'failed'" @click="projectAction('refund')">重试原押金退款</el-button>
+          <el-button v-if="!currentOrder.project_billing.hold" @click="projectAction('hold')">受理争议</el-button>
+          <template v-else><el-button @click="projectAction('resume')">和解恢复</el-button><el-button @click="projectAction('cancel')">协商取消工程</el-button></template>
+        </div>
         <div v-if="currentOrder.offsite_finance" class="page-card">
           <h3>不上门服务 · {{ currentOrder.offsite_finance.pricingMode === 'fixed_price' ? '一口价' : '固定订单押金' }}</h3>
           <el-alert v-if="currentOrder.offsite_finance.feePaymentReview || currentOrder.offsite_finance.depositReviewRequired" title="原款项已收到，订单版本或状态需人工核对，请勿要求用户再次支付。" type="warning" :closable="false" />
@@ -465,7 +475,7 @@
         </div>
 
         <!-- 工单金额分配统计（仅 completed_settled 状态展示） -->
-        <div v-if="currentOrder.status === 'completed_settled' && orderFinance.totalAmount > 0" class="finance-section">
+        <div v-if="!currentOrder.project_billing && currentOrder.status === 'completed_settled' && orderFinance.totalAmount > 0" class="finance-section">
           <h4>工单金额分配统计</h4>
           <div class="finance-row">
             <div class="finance-bar">
@@ -544,7 +554,7 @@ import LoadFeedback from '@/components/LoadFeedback.vue'
 const listError = ref('')
 const statsLoaded = ref(false), statsError = ref('')
 import { ref, reactive, computed, onMounted } from 'vue'
-import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview, checkOffsiteRefund, updateFixedPriceDispute } from '@/api/orders'
+import { resolveProjectBilling, getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview, checkOffsiteRefund, updateFixedPriceDispute } from '@/api/orders'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
@@ -563,6 +573,26 @@ const canHandleDispute = order => {
   const stages = ['accepted', 'in_progress', 'pending_review', 'pending_second_review', 'fixed_price_delivered', 'fixed_price_wait', 'fixed_price_hold']
   if (enterprise) stages.push('pending_repair_payment', 'pending_deposit_refund', 'offsite_hold', 'offsite_wait')
   return stages.includes(order.status)
+}
+const projectAmounts = computed(() => {
+  const billing = currentOrder.value?.project_billing
+  const members = billing?.members || []
+  const cents = item => Math.round(Number(item.share || 0) * 100)
+  const shares = members.reduce((sum, item) => sum + cents(item), 0)
+  const settled = members.filter(item => item.settled).reduce((sum, item) => sum + cents(item), 0)
+  return { shares: (shares / 100).toFixed(2), settled: (settled / 100).toFixed(2),
+    platform: ((Math.round(Number(billing?.fee || 0) * 100) - shares) / 100).toFixed(2) }
+})
+const projectAction = async resolution => {
+  const id = currentOrder.value.id
+  let reason
+  try { reason = (await ElMessageBox.prompt('请填写处理依据，协商取消时记录企业和相关电工意见', '工程处理记录')).value?.trim() } catch { return }
+  if (!reason) return ElMessage.warning('请填写处理记录')
+  try {
+    await resolveProjectBilling(id, ['hold','refund'].includes(resolution) ? resolution : 'resolve', {resolution,reason})
+    const response = await getOrderDetail(id)
+    if (currentOrder.value?.id === id) currentOrder.value = response.data
+  } catch (error) { ElMessage.error(error.message || '处理失败') }
 }
 const changeDispute = async () => {
   const { id, status } = currentOrder.value

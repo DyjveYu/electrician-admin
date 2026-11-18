@@ -70,3 +70,5 @@ export const getRecentActivities = (params) => {
     params
   })
 }
+
+export const resolveProjectBilling = (id, action, data) => request({ url: `/admin/orders/${id}/project-billing/${action}`, method: 'post', data })
