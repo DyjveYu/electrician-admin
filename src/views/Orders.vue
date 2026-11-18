@@ -226,14 +226,23 @@
     >
       <div v-if="currentOrder" class="order-detail">
         <div v-if="currentOrder.project_billing" class="page-card">
-          <h3>企业多人不上门工程</h3>
-          <p>订单押金 ¥{{ currentOrder.project_billing.deposit }} · {{ offsiteRefundText(currentOrder.project_billing.refund) }}</p>
+          <h3>企业多人不上门工程 · {{ currentOrder.project_billing.pricingMode === 'fixed_price' ? '一口价' : '固定押金' }}</h3>
+          <p v-if="currentOrder.project_billing.pricingMode === 'fixed_price'">一口价实收 ¥{{ currentOrder.project_billing.received || 0 }} · 实退 ¥{{ currentOrder.project_billing.refundAmount }} · 企业净付 ¥{{ projectAmounts.net }}<template v-if="currentOrder.project_billing.refund !== 'not_due'"> · {{ offsiteRefundText(currentOrder.project_billing.refund) }}</template></p>
+          <p v-else>订单押金 ¥{{ currentOrder.project_billing.deposit }} · {{ offsiteRefundText(currentOrder.project_billing.refund) }}</p>
           <p>整单工费 {{ currentOrder.project_billing.fee || '待确认' }} · {{ currentOrder.project_billing.paid ? '已付' : '未付' }}</p>
-          <p v-if="currentOrder.project_billing.paid">电工应得合计 ¥{{ projectAmounts.shares }} · 已入账 ¥{{ projectAmounts.settled }} · 平台份额 ¥{{ projectAmounts.platform }}</p>
+          <p v-if="currentOrder.project_billing.paid && (currentOrder.project_billing.pricingMode !== 'fixed_price' || currentOrder.project_billing.members.some(member => member.share != null))">电工应得合计 ¥{{ projectAmounts.shares }} · 已入账 ¥{{ projectAmounts.settled }} · 平台份额 ¥{{ projectAmounts.platform }}</p>
+          <el-table v-if="currentOrder.project_payment_history?.length" :data="currentOrder.project_payment_history" size="small">
+            <el-table-column label="交易单号" prop="out_trade_no" min-width="180" />
+            <el-table-column label="用途"><template #default="{ row }">{{ row.purpose === 'project_fixed_price_fee' ? '一口价' : (row.purpose === 'project_fee' ? '另付工费' : '订单押金') }}</template></el-table-column>
+            <el-table-column label="金额" prop="amount" />
+            <el-table-column label="付款状态" prop="status" />
+            <el-table-column label="退款状态"><template #default="{ row }">{{ !row.refund_state || row.refund_state === 'not_due' ? '—' : offsiteRefundText(row.refund_state) }}</template></el-table-column>
+            <el-table-column label="退款单号" prop="refund_request_no" min-width="180" />
+          </el-table>
           <p v-for="member in currentOrder.project_billing.members" :key="member.worker">电工 {{member.worker}} · {{member.note || '待交付'}} · 应得 {{member.share ?? '待确认'}} · {{member.settled ? '已入账' : '未入账'}}</p>
-          <el-button v-if="currentOrder.project_billing.refund === 'failed'" @click="projectAction('refund')">重试原押金退款</el-button>
-          <el-button v-if="!currentOrder.project_billing.hold" @click="projectAction('hold')">受理争议</el-button>
-          <template v-else><el-button @click="projectAction('resume')">和解恢复</el-button><el-button @click="projectAction('cancel')">协商取消工程</el-button></template>
+          <el-button v-if="currentOrder.project_billing.refund === 'failed'" @click="projectAction('refund')">重试原付款退款</el-button>
+          <el-button v-if="!currentOrder.project_billing.hold && !['cancelled','closed'].includes(currentOrder.status)" @click="projectAction('hold')">受理争议</el-button>
+          <template v-if="currentOrder.project_billing.hold"><el-button @click="projectAction('resume')">和解恢复</el-button><el-button @click="projectAction('cancel')">协商取消工程</el-button></template>
         </div>
         <div v-if="currentOrder.offsite_finance" class="page-card">
           <h3>不上门服务 · {{ currentOrder.offsite_finance.pricingMode === 'fixed_price' ? '一口价' : '固定订单押金' }}</h3>
@@ -323,7 +332,7 @@
         <div v-if="currentOrder.order_type === 'enterprise_project' && currentOrder.electricians" class="project-section">
           <h4>多日工程信息</h4>
           <el-descriptions :column="2" border style="margin-bottom: 16px">
-            <el-descriptions-item label="工单总额">¥{{ (currentOrder.proj_total_amount || currentOrder.final_amount || 0) }}</el-descriptions-item>
+            <el-descriptions-item label="工单总额">¥{{ (currentOrder.project_billing?.fee || currentOrder.proj_total_amount || currentOrder.final_amount || 0) }}</el-descriptions-item>
             <el-descriptions-item label="需要电工人数">{{ currentOrder.proj_required_count || '-' }}人</el-descriptions-item>
             <el-descriptions-item label="平台服务费(15%)">¥{{ currentOrder.platformFee }}</el-descriptions-item>
             <el-descriptions-item label="工程费(85%)">¥{{ currentOrder.projectFee }}</el-descriptions-item>
@@ -412,7 +421,7 @@
         </div>
 
         <!-- 退款信息 -->
-        <div v-if="currentOrder.prepay_refund_status || currentOrder.repair_refund_status" class="refund-section">
+        <div v-if="!currentOrder.project_billing && (currentOrder.prepay_refund_status || currentOrder.repair_refund_status)" class="refund-section">
           <h4>退款信息</h4>
           <!-- 预付款退款 -->
           <div v-if="currentOrder.prepay_refund_status">
@@ -580,7 +589,8 @@ const projectAmounts = computed(() => {
   const cents = item => Math.round(Number(item.share || 0) * 100)
   const shares = members.reduce((sum, item) => sum + cents(item), 0)
   const settled = members.filter(item => item.settled).reduce((sum, item) => sum + cents(item), 0)
-  return { shares: (shares / 100).toFixed(2), settled: (settled / 100).toFixed(2),
+  const net = Number(billing?.received || 0) - Number(billing?.refundAmount || 0)
+  return { net:net.toFixed(2), shares: (shares / 100).toFixed(2), settled: (settled / 100).toFixed(2),
     platform: ((Math.round(Number(billing?.fee || 0) * 100) - shares) / 100).toFixed(2) }
 })
 const projectAction = async resolution => {
@@ -588,8 +598,12 @@ const projectAction = async resolution => {
   let reason
   try { reason = (await ElMessageBox.prompt('请填写处理依据，协商取消时记录企业和相关电工意见', '工程处理记录')).value?.trim() } catch { return }
   if (!reason) return ElMessage.warning('请填写处理记录')
+  const fixed = currentOrder.value.project_billing?.pricingMode === 'fixed_price'
+  if (fixed && resolution === 'cancel') {
+    try { await ElMessageBox.confirm('请确认相关各方均同意整单取消，且没有已确认履约、应付或已入账款项。', '协商取消并原路退款') } catch { return }
+  }
   try {
-    await resolveProjectBilling(id, ['hold','refund'].includes(resolution) ? resolution : 'resolve', {resolution,reason})
+    await resolveProjectBilling(id, ['hold','refund'].includes(resolution) ? resolution : 'resolve', {resolution,reason,cancel_confirmed:fixed && resolution === 'cancel'})
     const response = await getOrderDetail(id)
     if (currentOrder.value?.id === id) currentOrder.value = response.data
   } catch (error) { ElMessage.error(error.message || '处理失败') }
