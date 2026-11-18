@@ -76,8 +76,8 @@
         <el-table-column prop="order_type" label="工单类型" width="110">
           <template #default="{ row }">
             <el-tag v-if="row.order_type === 'enterprise_project'" type="primary" size="small">多日工程</el-tag>
-            <el-tag v-else-if="row.order_type === 'enterprise_quick'" type="success" size="small">企业快修</el-tag>
-            <el-tag v-else type="info" size="small">个人快修</el-tag>
+            <el-tag v-else-if="row.order_type === 'enterprise_quick'" type="success" size="small">{{ row.service_mode === 'off_site' ? '企业不上门订单' : '企业快修' }}</el-tag>
+            <el-tag v-else type="info" size="small">{{ row.service_mode === 'off_site' ? '个人不上门订单' : '个人快修' }}</el-tag>
           </template>
         </el-table-column>
 
@@ -122,7 +122,7 @@
 
         <el-table-column align="right" prop="order_amount" label="订单金额" width="110">
           <template #default="{ row }">
-            <span>¥{{ row._isProjectEntry ? (row.final_amount || row.proj_total_amount || 0) : (row.final_amount || 0) }}</span>
+            <span>¥{{ row._isProjectEntry ? (row.final_amount || row.proj_total_amount || 0) : (row.pricing_mode === 'fixed_price' ? row.prepay_amount : row.final_amount || 0) }}</span>
           </template>
         </el-table-column>
 
@@ -178,8 +178,8 @@
               <el-descriptions-item label="工单号">{{ currentOrder.order_no }}</el-descriptions-item>
               <el-descriptions-item label="订单类型">
                 <el-tag v-if="currentOrder.order_type === 'enterprise_project'" type="warning" size="small">多日工程</el-tag>
-                <el-tag v-else-if="currentOrder.order_type === 'enterprise_quick'" type="success" size="small">企业快修</el-tag>
-                <el-tag v-else type="info" size="small">个人快修</el-tag>
+                <el-tag v-else-if="currentOrder.order_type === 'enterprise_quick'" type="success" size="small">{{ currentOrder.service_mode === 'off_site' ? '企业不上门订单' : '企业快修' }}</el-tag>
+                <el-tag v-else type="info" size="small">{{ currentOrder.service_mode === 'off_site' ? '个人不上门订单' : '个人快修' }}</el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="服务类型">{{ currentOrder.service_type_name || currentOrder.serviceType?.name }}</el-descriptions-item>
               <el-descriptions-item label="问题描述">{{ currentOrder.description }}</el-descriptions-item>

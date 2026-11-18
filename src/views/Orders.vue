@@ -44,6 +44,8 @@
             <el-option label="待评价" value="pending_review" />
             <el-option label="待二次评价" value="pending_second_review" />
             <el-option label="待确认完成" value="fixed_price_delivered" />
+            <el-option label="企业不上门等待结算" value="offsite_wait" />
+            <el-option label="企业不上门争议处理中" value="offsite_hold" />
             <el-option label="五星等待结算" value="fixed_price_wait" />
             <el-option label="争议处理中" value="fixed_price_hold" />
             <el-option label="待押金退回后结算" value="pending_deposit_refund" />
@@ -131,8 +133,8 @@
         <el-table-column prop="order_type" label="订单类型" width="100" align="center">
           <template #default="{ row }">
             <el-tag v-if="row.order_type === 'enterprise_project'" type="warning" size="small">多日工程</el-tag>
-            <el-tag v-else-if="row.order_type === 'enterprise_quick'" type="success" size="small">企业快修</el-tag>
-            <el-tag v-else type="info" size="small">个人快修</el-tag>
+            <el-tag v-else-if="row.order_type === 'enterprise_quick'" type="success" size="small">{{ row.service_mode === 'off_site' ? '企业不上门订单' : '企业快修' }}</el-tag>
+            <el-tag v-else type="info" size="small">{{ row.service_mode === 'off_site' ? '个人不上门订单' : '个人快修' }}</el-tag>
           </template>
         </el-table-column>
 
@@ -235,9 +237,9 @@
             <el-descriptions-item label="电工应得85%">¥{{ Number(currentOrder.offsite_finance.electricianAmount).toFixed(2) }}</el-descriptions-item>
             <el-descriptions-item label="平台毛额">¥{{ Number(currentOrder.offsite_finance.platformAmount).toFixed(2) }}（佣金从中分出）</el-descriptions-item>
           </el-descriptions>
-          <el-button v-if="currentOrder.pricing_mode === 'fixed_price' && ['accepted','in_progress','pending_review','pending_second_review','fixed_price_delivered','fixed_price_wait','fixed_price_hold'].includes(currentOrder.status)" @click="changeDispute">{{ currentOrder.status === 'fixed_price_hold' ? '记录和解并解除暂停' : '受理争议并暂停结算' }}</el-button>
+          <el-button v-if="canHandleDispute(currentOrder)" @click="changeDispute">{{ isHeld(currentOrder.status) ? '记录和解并解除暂停' : '受理争议并暂停结算' }}</el-button>
           <p v-for="entry in currentOrder.dispute_history" :key="entry.id">
-            {{ entry.to_status === 'fixed_price_hold' ? '受理争议' : '解除暂停' }} · {{ entry.created_at }} · {{ entry.remark }}
+            {{ isHeld(entry.to_status) ? '受理争议' : '解除暂停' }} · {{ entry.created_at }} · {{ entry.remark }}
           </p>
           <p v-if="currentOrder.offsite_finance.pricingMode !== 'fixed_price'">订单押金全退，不抵扣工费，不计入收入或佣金；退款处理中不能视为已经退回。</p>
           <el-button :loading="offsiteChecking" @click="handleOffsiteRefund('query')">核对原路退款</el-button>
@@ -249,8 +251,8 @@
               <el-descriptions-item label="工单号">{{ currentOrder.order_no }}</el-descriptions-item>
               <el-descriptions-item label="订单类型">
                 <el-tag v-if="currentOrder.order_type === 'enterprise_project'" type="warning" size="small">多日工程</el-tag>
-                <el-tag v-else-if="currentOrder.order_type === 'enterprise_quick'" type="success" size="small">企业快修</el-tag>
-                <el-tag v-else type="info" size="small">个人快修</el-tag>
+                <el-tag v-else-if="currentOrder.order_type === 'enterprise_quick'" type="success" size="small">{{ currentOrder.service_mode === 'off_site' ? '企业不上门订单' : '企业快修' }}</el-tag>
+                <el-tag v-else type="info" size="small">{{ currentOrder.service_mode === 'off_site' ? '个人不上门订单' : '个人快修' }}</el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="服务类型">{{ currentOrder.service_type_name || currentOrder.serviceType?.name }}</el-descriptions-item>
               <template v-if="currentOrder.order_type === 'personal_quick' || (['enterprise_quick', 'enterprise_project'].includes(currentOrder.order_type) && (currentOrder.service_mode != null || currentOrder.required_cert_type != null))">
@@ -553,9 +555,18 @@ const currentOrder = ref(null)
 const offsiteChecking = ref(false)
 const offsiteRefundText = state => ({ not_due: '工费支付后全退', pending: '待退款', processing: '退款处理中', success: '已原路退回', failed: '明确失败', unknown: '结果待核对' })[state] || '待核对'
 const offsiteSettlementText = state => ({ held: '争议处理中', not_due: '尚未结算', waiting_review: '等待评价', waiting_refund: '等待押金退回', waiting_time: '等待五星后24小时', ready: '已满足结算条件', unsettled: '已完成不结算', needs_review: '资金状态需人工核对' })[state] || '待核对'
+const isHeld = status => ['fixed_price_hold', 'offsite_hold'].includes(status)
+const canHandleDispute = order => {
+  if (!order.offsite_finance) return false
+  const enterprise = order.order_type === 'enterprise_quick'
+  if (!enterprise && order.pricing_mode !== 'fixed_price') return false
+  const stages = ['accepted', 'in_progress', 'pending_review', 'pending_second_review', 'fixed_price_delivered', 'fixed_price_wait', 'fixed_price_hold']
+  if (enterprise) stages.push('pending_repair_payment', 'pending_deposit_refund', 'offsite_hold', 'offsite_wait')
+  return stages.includes(order.status)
+}
 const changeDispute = async () => {
   const { id, status } = currentOrder.value
-  const action = status === 'fixed_price_hold' ? 'resume' : 'hold'
+  const action = isHeld(status) ? 'resume' : 'hold'
   let reason
   try {
     const result = await ElMessageBox.prompt('请填写受理原因或和解结果', '处理订单争议', { inputType: 'textarea' })
@@ -636,7 +647,7 @@ const getStatusText = (status) => {
     'pending_repair_payment': '待支付维修费',
     'in_progress': '维修中',
     'pending_review': '待评价',
-    fixed_price_delivered: '待确认完成', fixed_price_wait: '等待结算', fixed_price_hold: '争议处理中', 'pending_deposit_refund': '待押金退回后结算',
+    offsite_hold: '争议处理中', offsite_wait: '等待结算', fixed_price_delivered: '待确认完成', fixed_price_wait: '等待结算', fixed_price_hold: '争议处理中', 'pending_deposit_refund': '待押金退回后结算',
     'pending_second_review': '待二次评价',
     'completed_settled': '已完成已支付',
     'completed_unsettle': '已完成未支付',
@@ -655,7 +666,7 @@ const getProjectElectricianStatusText = (status) => {
   const map = {
     in_progress: '施工中',
     pending_review: '待评价',
-    fixed_price_delivered: '待确认完成', fixed_price_wait: '等待结算', fixed_price_hold: '争议处理中', pending_deposit_refund: '待押金退回后结算',
+    offsite_hold: '争议处理中', offsite_wait: '等待结算', fixed_price_delivered: '待确认完成', fixed_price_wait: '等待结算', fixed_price_hold: '争议处理中', pending_deposit_refund: '待押金退回后结算',
     pending_second_review: '待二次评价',
     completed_settled: '已结算',
     completed_unsettle: '未结算'
@@ -900,7 +911,7 @@ const orderFinance = computed(() => {
 
   const prepay = order.offsite_finance ? 0 : Number(order.prepay_amount || 0)
   const finalAmt = Number(order.final_amount || order.repair_amount || 0)
-  const totalAmount = prepay + finalAmt
+  const totalAmount = order.offsite_finance ? Number(order.offsite_finance.feeAmount) : prepay + finalAmt
   const electricianAmount = order.offsite_finance ? Number(order.offsite_finance.electricianAmount) : Number((totalAmount * 0.85).toFixed(2))
 
   // 根据实际佣金记录区分推荐达人/合作伙伴
