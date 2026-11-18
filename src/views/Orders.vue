@@ -225,6 +225,22 @@
       width="min(1000px, calc(100vw - 32px))"
     >
       <div v-if="currentOrder" class="order-detail">
+        <div v-if="currentOrder.dispatch_wait" class="page-card">
+          <h3>等待接单</h3>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="首次开放">{{ formatDateTime(currentOrder.dispatch_wait.openedAt) }}</el-descriptions-item>
+            <el-descriptions-item label="推荐范围">{{ currentOrder.dispatch_wait.region }}</el-descriptions-item>
+            <el-descriptions-item label="最近扩围">{{ dispatchTime(currentOrder.dispatch_wait.expandedAt) }}</el-descriptions-item>
+            <el-descriptions-item label="24小时到期">{{ dispatchTime(currentOrder.dispatch_wait.expiresAt) }}</el-descriptions-item>
+            <el-descriptions-item label="15分钟提醒／继续">{{ dispatchTime(currentOrder.dispatch_wait.notice15At) }} ／ {{ dispatchTime(currentOrder.dispatch_wait.continued15At) }}</el-descriptions-item>
+            <el-descriptions-item label="30分钟提醒／继续">{{ dispatchTime(currentOrder.dispatch_wait.notice30At) }} ／ {{ dispatchTime(currentOrder.dispatch_wait.continued30At) }}</el-descriptions-item>
+            <el-descriptions-item label="退出原因">{{ dispatchExit(currentOrder.dispatch_wait.finishedReason) }}</el-descriptions-item>
+            <el-descriptions-item v-if="currentOrder.dispatch_wait.refundState" label="原路退款">¥{{ currentOrder.dispatch_wait.amount }} · {{ offsiteRefundText(currentOrder.dispatch_wait.refundState) }}</el-descriptions-item>
+            <el-descriptions-item v-if="currentOrder.dispatch_wait.paymentNo" label="原支付单号">{{ currentOrder.dispatch_wait.paymentNo }}</el-descriptions-item>
+            <el-descriptions-item v-if="currentOrder.dispatch_wait.refundNo" label="退款单号">{{ currentOrder.dispatch_wait.refundNo }}</el-descriptions-item>
+          </el-descriptions>
+          <el-button v-if="currentOrder.dispatch_wait.refundState === 'failed' || currentOrder.dispatch_wait.finishedReason === 'payment_review'" @click="dispatchRefund">复核原付款退款</el-button>
+        </div>
         <div v-if="currentOrder.project_billing" class="page-card">
           <h3>企业多人不上门工程 · {{ currentOrder.project_billing.pricingMode === 'fixed_price' ? '一口价' : '固定押金' }}</h3>
           <p v-if="currentOrder.project_billing.pricingMode === 'fixed_price'">一口价实收 ¥{{ currentOrder.project_billing.received || 0 }} · 实退 ¥{{ currentOrder.project_billing.refundAmount }} · 企业净付 ¥{{ projectAmounts.net }}<template v-if="currentOrder.project_billing.refund !== 'not_due'"> · {{ offsiteRefundText(currentOrder.project_billing.refund) }}</template></p>
@@ -563,7 +579,7 @@ import LoadFeedback from '@/components/LoadFeedback.vue'
 const listError = ref('')
 const statsLoaded = ref(false), statsError = ref('')
 import { ref, reactive, computed, onMounted } from 'vue'
-import { resolveProjectBilling, getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview, checkOffsiteRefund, updateFixedPriceDispute } from '@/api/orders'
+import { retryDispatchRefund, resolveProjectBilling, getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview, checkOffsiteRefund, updateFixedPriceDispute } from '@/api/orders'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
@@ -582,6 +598,22 @@ const canHandleDispute = order => {
   const stages = ['accepted', 'in_progress', 'pending_review', 'pending_second_review', 'fixed_price_delivered', 'fixed_price_wait', 'fixed_price_hold']
   if (enterprise) stages.push('pending_repair_payment', 'pending_deposit_refund', 'offsite_hold', 'offsite_wait')
   return stages.includes(order.status)
+}
+const dispatchTime = value => value ? formatDateTime(value) : '—'
+const dispatchExit = value => ({
+  expiring:'已到期，待定时处理', taken:'已有电工接单或报名', cancelled:'下单人取消', timeout:'24小时无人接单自动取消',
+  project_ended:'工程先结束', paused:'争议暂停', payment_review:'待核对原付款'
+})[value] || '等待接单'
+const dispatchRefund = async () => {
+  const id = currentOrder.value.id
+  let reason
+  try { reason = (await ElMessageBox.prompt('填写原付款核对记录', '复核原付款退款')).value?.trim() } catch { return }
+  if (!reason) return ElMessage.warning('请填写核对记录')
+  try {
+    await retryDispatchRefund(id, reason)
+    const response = await getOrderDetail(id)
+    if (currentOrder.value?.id === id) currentOrder.value = response.data
+  } catch (error) { ElMessage.error(error.message || '原付款复核失败') }
 }
 const projectAmounts = computed(() => {
   const billing = currentOrder.value?.project_billing
