@@ -43,6 +43,9 @@
             <el-option label="维修中" value="in_progress" />
             <el-option label="待评价" value="pending_review" />
             <el-option label="待二次评价" value="pending_second_review" />
+            <el-option label="待确认完成" value="fixed_price_delivered" />
+            <el-option label="五星等待结算" value="fixed_price_wait" />
+            <el-option label="争议处理中" value="fixed_price_hold" />
             <el-option label="待押金退回后结算" value="pending_deposit_refund" />
             <el-option label="已完成已支付" value="completed_settled" />
             <el-option label="已完成未支付" value="completed_unsettle" />
@@ -160,7 +163,7 @@
         </el-table-column>
 
         <el-table-column label="不上门款项" min-width="180">
-          <template #default="{ row }"><div v-if="row.offsite_finance">押金¥200 · {{ offsiteRefundText(row.offsite_finance.refundState) }}<br>工费{{ row.offsite_finance.feeAmount > 0 ? '¥' + Number(row.offsite_finance.feeAmount).toFixed(2) : '待确认' }}</div><span v-else>—</span></template>
+          <template #default="{ row }"><div v-if="row.offsite_finance"><template v-if="row.offsite_finance.pricingMode === 'fixed_price'">一口价</template><template v-else>押金¥200 · {{ offsiteRefundText(row.offsite_finance.refundState) }}</template><br>工费{{ row.offsite_finance.feeAmount > 0 ? '¥' + Number(row.offsite_finance.feeAmount).toFixed(2) : '待确认' }}</div><span v-else>—</span></template>
         </el-table-column>
         <el-table-column prop="description" label="服务描述" width="200" show-overflow-tooltip>
           <template #default="{ row }">
@@ -221,19 +224,23 @@
     >
       <div v-if="currentOrder" class="order-detail">
         <div v-if="currentOrder.offsite_finance" class="page-card">
-          <h3>不上门服务 · 固定订单押金</h3>
+          <h3>不上门服务 · {{ currentOrder.offsite_finance.pricingMode === 'fixed_price' ? '一口价' : '固定订单押金' }}</h3>
           <el-alert v-if="currentOrder.offsite_finance.feePaymentReview || currentOrder.offsite_finance.depositReviewRequired" title="原款项已收到，订单版本或状态需人工核对，请勿要求用户再次支付。" type="warning" :closable="false" />
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="订单押金">¥200.00 · {{ currentOrder.offsite_finance.depositPaid ? '已支付' : '待支付' }}</el-descriptions-item>
-            <el-descriptions-item label="押金原路退款">{{ offsiteRefundText(currentOrder.offsite_finance.refundState) }}</el-descriptions-item>
-            <el-descriptions-item label="另付工费（含15%平台费）">{{ currentOrder.offsite_finance.feeAmount > 0 ? '¥' + Number(currentOrder.offsite_finance.feeAmount).toFixed(2) : '待双方确认' }}</el-descriptions-item>
+            <el-descriptions-item v-if="currentOrder.offsite_finance.pricingMode !== 'fixed_price'" label="订单押金">¥200.00 · {{ currentOrder.offsite_finance.depositPaid ? '已支付' : '待支付' }}</el-descriptions-item>
+            <el-descriptions-item v-if="currentOrder.offsite_finance.pricingMode !== 'fixed_price' || currentOrder.offsite_finance.refundState !== 'not_due'" label="原路退款">{{ offsiteRefundText(currentOrder.offsite_finance.refundState) }}</el-descriptions-item>
+            <el-descriptions-item label="约定工费（含15%平台费）">{{ currentOrder.offsite_finance.feeAmount > 0 ? '¥' + Number(currentOrder.offsite_finance.feeAmount).toFixed(2) : '待双方确认' }}</el-descriptions-item>
             <el-descriptions-item label="工费实付">{{ currentOrder.offsite_finance.feePaid ? '已支付' : '未确认支付' }}</el-descriptions-item>
             <el-descriptions-item label="结算进度">{{ offsiteSettlementText(currentOrder.offsite_finance.settlementStage) }}</el-descriptions-item>
             <el-descriptions-item label="电工应得85%">¥{{ Number(currentOrder.offsite_finance.electricianAmount).toFixed(2) }}</el-descriptions-item>
             <el-descriptions-item label="平台毛额">¥{{ Number(currentOrder.offsite_finance.platformAmount).toFixed(2) }}（佣金从中分出）</el-descriptions-item>
           </el-descriptions>
-          <p>订单押金全退，不抵扣工费，不计入收入或佣金；退款处理中不能视为已经退回。</p>
-          <el-button :loading="offsiteChecking" @click="handleOffsiteRefund('query')">核对原押金退款</el-button>
+          <el-button v-if="currentOrder.pricing_mode === 'fixed_price' && ['accepted','in_progress','pending_review','pending_second_review','fixed_price_delivered','fixed_price_wait','fixed_price_hold'].includes(currentOrder.status)" @click="changeDispute">{{ currentOrder.status === 'fixed_price_hold' ? '记录和解并解除暂停' : '受理争议并暂停结算' }}</el-button>
+          <p v-for="entry in currentOrder.dispute_history" :key="entry.id">
+            {{ entry.to_status === 'fixed_price_hold' ? '受理争议' : '解除暂停' }} · {{ entry.created_at }} · {{ entry.remark }}
+          </p>
+          <p v-if="currentOrder.offsite_finance.pricingMode !== 'fixed_price'">订单押金全退，不抵扣工费，不计入收入或佣金；退款处理中不能视为已经退回。</p>
+          <el-button :loading="offsiteChecking" @click="handleOffsiteRefund('query')">核对原路退款</el-button>
           <el-button v-if="currentOrder.offsite_finance.refundState === 'failed'" :loading="offsiteChecking" @click="handleOffsiteRefund('retry')">重试明确失败的原退款</el-button>
         </div>
         <el-row :gutter="24">
@@ -535,7 +542,7 @@ import LoadFeedback from '@/components/LoadFeedback.vue'
 const listError = ref('')
 const statsLoaded = ref(false), statsError = ref('')
 import { ref, reactive, computed, onMounted } from 'vue'
-import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview, checkOffsiteRefund } from '@/api/orders'
+import { getOrderList, updateOrderStatus, getOrderDetail, getStatistics, triggerProjectReview, checkOffsiteRefund, updateFixedPriceDispute } from '@/api/orders'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
@@ -544,8 +551,23 @@ const selectedOrders = ref([])
 const detailDialogVisible = ref(false)
 const currentOrder = ref(null)
 const offsiteChecking = ref(false)
-const offsiteRefundText = state => ({ not_due: '工费支付后全退', pending: '待退款', processing: '退款处理中', success: '押金已退回', failed: '明确失败', unknown: '结果待核对' })[state] || '待核对'
-const offsiteSettlementText = state => ({ not_due: '尚未结算', waiting_review: '等待评价', waiting_refund: '等待押金退回', waiting_time: '等待五星后24小时', ready: '已满足结算条件', unsettled: '已完成不结算', needs_review: '资金状态需人工核对' })[state] || '待核对'
+const offsiteRefundText = state => ({ not_due: '工费支付后全退', pending: '待退款', processing: '退款处理中', success: '已原路退回', failed: '明确失败', unknown: '结果待核对' })[state] || '待核对'
+const offsiteSettlementText = state => ({ held: '争议处理中', not_due: '尚未结算', waiting_review: '等待评价', waiting_refund: '等待押金退回', waiting_time: '等待五星后24小时', ready: '已满足结算条件', unsettled: '已完成不结算', needs_review: '资金状态需人工核对' })[state] || '待核对'
+const changeDispute = async () => {
+  const { id, status } = currentOrder.value
+  const action = status === 'fixed_price_hold' ? 'resume' : 'hold'
+  let reason
+  try {
+    const result = await ElMessageBox.prompt('请填写受理原因或和解结果', '处理订单争议', { inputType: 'textarea' })
+    reason = result.value?.trim()
+  } catch { return }
+  if (!reason) return ElMessage.warning('请填写处理记录')
+  try {
+    await updateFixedPriceDispute(id, action, reason)
+    const response = await getOrderDetail(id)
+    if (currentOrder.value?.id === id) currentOrder.value = response.data
+  } catch (error) { ElMessage.error(error.message || '争议处理失败') }
+}
 const handleOffsiteRefund = async action => {
   if (offsiteChecking.value || !currentOrder.value) return
   const id = currentOrder.value.id
@@ -614,7 +636,7 @@ const getStatusText = (status) => {
     'pending_repair_payment': '待支付维修费',
     'in_progress': '维修中',
     'pending_review': '待评价',
-    'pending_deposit_refund': '待押金退回后结算',
+    fixed_price_delivered: '待确认完成', fixed_price_wait: '等待结算', fixed_price_hold: '争议处理中', 'pending_deposit_refund': '待押金退回后结算',
     'pending_second_review': '待二次评价',
     'completed_settled': '已完成已支付',
     'completed_unsettle': '已完成未支付',
@@ -633,7 +655,7 @@ const getProjectElectricianStatusText = (status) => {
   const map = {
     in_progress: '施工中',
     pending_review: '待评价',
-    pending_deposit_refund: '待押金退回后结算',
+    fixed_price_delivered: '待确认完成', fixed_price_wait: '等待结算', fixed_price_hold: '争议处理中', pending_deposit_refund: '待押金退回后结算',
     pending_second_review: '待二次评价',
     completed_settled: '已结算',
     completed_unsettle: '未结算'
