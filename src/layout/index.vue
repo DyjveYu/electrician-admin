@@ -23,6 +23,14 @@
           <template #title>仪表盘</template>
         </el-menu-item>
 
+        <el-sub-menu v-if="!isNarrow" index="visit-statistics">
+          <template #title>
+            <el-icon><DataBoard /></el-icon>
+            <span>访问统计</span>
+          </template>
+          <el-menu-item index="/visit-statistics/details">访问明细</el-menu-item>
+        </el-sub-menu>
+
         <el-menu-item index="/users">
           <el-icon><User /></el-icon>
           <template #title>用户管理</template>
@@ -261,7 +269,7 @@ const mobileMenuOpen = ref(false)
 const updateViewport = () => { isNarrow.value = window.innerWidth < 900; mobileMenuOpen.value = false }
 watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
 const activeMenu = computed(() => /^\/partners\/\d+\/stats$/.test(route.path) ? '/partners' : route.path)
-const openedMenus = computed(() => route.path.startsWith('/electricians') ? ['electrician-management'] : route.path.startsWith('/home-information') ? ['/home-information'] : route.path.startsWith('/admins') ? ['administrator-center'] : [])
+const openedMenus = computed(() => route.path.startsWith('/visit-statistics') ? ['visit-statistics'] : route.path.startsWith('/electricians') ? ['electrician-management'] : route.path.startsWith('/home-information') ? ['/home-information'] : route.path.startsWith('/admins') ? ['administrator-center'] : [])
 const parentTitle = computed(() => route.path.startsWith('/electricians/') ? '电工管理' : route.path.startsWith('/home-information/') ? '首页信息管理' : route.path.startsWith('/admins') ? '管理员中心' : /^\/partners\/\d+\/stats$/.test(route.path) ? '合作伙伴管理' : '')
 const parentPath = computed(() => parentTitle.value === '电工管理' ? '/electricians' : parentTitle.value === '管理员中心' ? '/admins' : parentTitle.value === '合作伙伴管理' ? '/partners' : '')
 

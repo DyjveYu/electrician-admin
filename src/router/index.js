@@ -37,6 +37,12 @@ const router = createRouter({
           meta: { title: '广告维护', icon: 'Document' }
         },
         {
+          path: '/visit-statistics/details',
+          name: 'VisitDetails',
+          component: () => import('@/views/VisitDetails.vue'),
+          meta: { title: '访问明细' }
+        },
+        {
           path: '/dashboard',
           name: 'Dashboard',
           component: () => import('@/views/Dashboard.vue'),
