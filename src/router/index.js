@@ -43,6 +43,18 @@ const router = createRouter({
           meta: { title: '访问明细' }
         },
         {
+          path: '/visit-statistics/daily',
+          name: 'VisitDaily',
+          component: () => import('@/views/VisitDaily.vue'),
+          meta: { title: '日访问统计' }
+        },
+        {
+          path: '/visit-statistics/regions',
+          name: 'VisitRegions',
+          component: () => import('@/views/VisitRegions.vue'),
+          meta: { title: '地域分析' }
+        },
+        {
           path: '/dashboard',
           name: 'Dashboard',
           component: () => import('@/views/Dashboard.vue'),

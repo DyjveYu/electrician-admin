@@ -29,6 +29,8 @@
             <span>访问统计</span>
           </template>
           <el-menu-item index="/visit-statistics/details">访问明细</el-menu-item>
+          <el-menu-item index="/visit-statistics/daily">日访问统计</el-menu-item>
+          <el-menu-item index="/visit-statistics/regions">地域分析</el-menu-item>
         </el-sub-menu>
 
         <el-menu-item index="/users">
